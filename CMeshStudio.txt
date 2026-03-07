@@ -1,0 +1,86 @@
+CMeshStudio 设计文档
+
+设计思想
+核心理念：宿主程序即容器（Host as Container）。
+数据流：UI 修改属性 -> Entity 标记 Dirty -> 主循环检测 -> TCC 执行脚本 -> 填充 Mesh 数据 -> OpenGL 更新 VBO -> 渲染。
+扩展性：通过 JSON 序列化实现工程持久化，通过 TCC 实现逻辑热重载。
+
+技术栈
+语言：C++17 (Core), C (Script)
+框架：Qt 6 (Widgets & OpenGL), TCC (Embeddable C Compiler), nlohmann/json
+渲染：OpenGL 3.3+ (Core Profile)
+
+数学库 (math.h/cpp)
+约定：
+    坐标系：Y-Up (OpenGL Standard)。
+    角度：统一使用弧度制。
+    数据类型：float (32-bit)。但是浮点数不能直接比较，采用精度比较。
+结构：
+    Vector3, Point3, ColorRGBA。
+    Matrix4：列优先存储，支持 Translate, Rotate, Scale。
+    BoundBox：包围盒计算。
+
+几何内核 (geometry.h/cpp)
+Entity (实体)：
+    ID (Unique), Name。
+    Properties (Map: Key -> Value)。
+    ScriptSource (C Code String)。
+    Mesh (Vertices, Indices/Faces)。
+    Transform (Local to World Matrix)。
+    Dirty Flag。
+    方法：
+        Rebuild()：触发脚本执行，生成局部坐标顶点。
+        SetProperty()：修改属性并标记 Dirty。
+Document：管理 Entity 的集合（Map）。
+C API (供脚本调用)：
+    void cgeo_add_vertex(float x, float y, float z)。
+    float cgeo_get_prop_float(const char* name)。
+    void cgeo_set_prop_float(const char* name, float value)。
+    ......
+
+TCC 引擎 (tccengine.h/cpp)
+职责：编译 C 源码，链接 C API 符号，执行 generate() 函数。
+错误处理：捕获编译错误日志，输出到 UI Console。
+状态管理：隔离每个 Entity 的脚本状态（或共享全局状态？文档需定义）。
+
+UI 与主窗口 (mainwindow.h/cpp)
+ -中部为渲染区，上部为
+ -右侧边栏分三部分，上部为工具条（加载，保存，运行）中部为C脚本编辑器（支持C语法高亮显示）下部为编译状态显示(只读)
+
+水平三段布局(2:3:2)：
+    左侧面板（上下三部分）：
+        工具条（新建，打开，保存，另存为,新建实体）
+        Scene Tree：显示实体列表。
+        Property Grid：动态生成的属性编辑器。
+    中间面板（上下两部分）：
+	工具条包含一个渲染模式下拉列表（点，线框，网格线，实体）一个标准视向下拉列表，一个初始视向按钮，一个显示坐标轴复选框
+        GL Viewport：3D 视图。
+    右侧面板：
+        Script Editor：带语法高亮的代码编辑器。
+        Console：日志输出（只读）。
+交互：
+    鼠标：左键旋转，右键平移，滚轮缩放。
+    拾取：颜色拾取法 (Color Picking)。
+
+OpenGL 渲染 (glviewport.h/cpp)
+渲染管线：
+    顶点着色器：传递 MVP 矩阵。
+    片段着色器：支持线框/实心混合模式。
+VBO/VAO：每个 Entity 对应一组 VBO，或使用大数组动态更新。
+
+数据持久化
+格式：JSON。
+Schema：
+        {
+      "version": "1.0",
+      "entities": [
+        {
+          "id": 1,
+          "name": "Cube",
+          "properties": {"width": 10.0},
+          "script": "void generate(){...}",
+          "transform": 
+        }
+      ]
+    }
+

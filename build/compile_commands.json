@@ -1,0 +1,44 @@
+[
+{
+  "directory": "E:/Qt/CMeshStudio/build",
+  "command": "E:\\Qt\\Tools\\mingw1310_64\\bin\\g++.exe -DMINGW_HAS_SECURE_API=1 -DQT_CORE_LIB -DQT_GUI_LIB -DQT_NO_DEBUG -DQT_OPENGLWIDGETS_LIB -DQT_OPENGL_LIB -DQT_WIDGETS_LIB -DUNICODE -DWIN32 -DWIN64 -D_ENABLE_EXTENDED_ALIGNED_STORAGE -D_UNICODE -D_WIN64 -IE:/Qt/CMeshStudio/include -IE:/Qt/CMeshStudio/extlib/nlohmann-json-develop/include -IE:/Qt/CMeshStudio/extlib/libtcc/include -isystem E:/Qt/6.10.1/mingw_64/include/QtWidgets -isystem E:/Qt/6.10.1/mingw_64/include -isystem E:/Qt/6.10.1/mingw_64/include/QtCore -isystem E:/Qt/6.10.1/mingw_64/mkspecs/win32-g++ -isystem E:/Qt/6.10.1/mingw_64/include/QtGui -isystem E:/Qt/6.10.1/mingw_64/include/QtOpenGLWidgets -isystem E:/Qt/6.10.1/mingw_64/include/QtOpenGL -O3 -DNDEBUG -std=gnu++17 -Wall -Wextra -Wpedantic -o CMakeFiles\\CMeshStudio.dir\\src\\main.cpp.obj -c E:\\Qt\\CMeshStudio\\src\\main.cpp",
+  "file": "E:\\Qt\\CMeshStudio\\src\\main.cpp",
+  "output": "CMakeFiles\\CMeshStudio.dir\\src\\main.cpp.obj"
+},
+{
+  "directory": "E:/Qt/CMeshStudio/build",
+  "command": "E:\\Qt\\Tools\\mingw1310_64\\bin\\g++.exe -DMINGW_HAS_SECURE_API=1 -DQT_CORE_LIB -DQT_GUI_LIB -DQT_NO_DEBUG -DQT_OPENGLWIDGETS_LIB -DQT_OPENGL_LIB -DQT_WIDGETS_LIB -DUNICODE -DWIN32 -DWIN64 -D_ENABLE_EXTENDED_ALIGNED_STORAGE -D_UNICODE -D_WIN64 -IE:/Qt/CMeshStudio/include -IE:/Qt/CMeshStudio/extlib/nlohmann-json-develop/include -IE:/Qt/CMeshStudio/extlib/libtcc/include -isystem E:/Qt/6.10.1/mingw_64/include/QtWidgets -isystem E:/Qt/6.10.1/mingw_64/include -isystem E:/Qt/6.10.1/mingw_64/include/QtCore -isystem E:/Qt/6.10.1/mingw_64/mkspecs/win32-g++ -isystem E:/Qt/6.10.1/mingw_64/include/QtGui -isystem E:/Qt/6.10.1/mingw_64/include/QtOpenGLWidgets -isystem E:/Qt/6.10.1/mingw_64/include/QtOpenGL -O3 -DNDEBUG -std=gnu++17 -Wall -Wextra -Wpedantic -o CMakeFiles\\CMeshStudio.dir\\src\\mainwindow.cpp.obj -c E:\\Qt\\CMeshStudio\\src\\mainwindow.cpp",
+  "file": "E:\\Qt\\CMeshStudio\\src\\mainwindow.cpp",
+  "output": "CMakeFiles\\CMeshStudio.dir\\src\\mainwindow.cpp.obj"
+},
+{
+  "directory": "E:/Qt/CMeshStudio/build",
+  "command": "E:\\Qt\\Tools\\mingw1310_64\\bin\\g++.exe -DMINGW_HAS_SECURE_API=1 -DQT_CORE_LIB -DQT_GUI_LIB -DQT_NO_DEBUG -DQT_OPENGLWIDGETS_LIB -DQT_OPENGL_LIB -DQT_WIDGETS_LIB -DUNICODE -DWIN32 -DWIN64 -D_ENABLE_EXTENDED_ALIGNED_STORAGE -D_UNICODE -D_WIN64 -IE:/Qt/CMeshStudio/include -IE:/Qt/CMeshStudio/extlib/nlohmann-json-develop/include -IE:/Qt/CMeshStudio/extlib/libtcc/include -isystem E:/Qt/6.10.1/mingw_64/include/QtWidgets -isystem E:/Qt/6.10.1/mingw_64/include -isystem E:/Qt/6.10.1/mingw_64/include/QtCore -isystem E:/Qt/6.10.1/mingw_64/mkspecs/win32-g++ -isystem E:/Qt/6.10.1/mingw_64/include/QtGui -isystem E:/Qt/6.10.1/mingw_64/include/QtOpenGLWidgets -isystem E:/Qt/6.10.1/mingw_64/include/QtOpenGL -O3 -DNDEBUG -std=gnu++17 -Wall -Wextra -Wpedantic -o CMakeFiles\\CMeshStudio.dir\\src\\math_types.cpp.obj -c E:\\Qt\\CMeshStudio\\src\\math_types.cpp",
+  "file": "E:\\Qt\\CMeshStudio\\src\\math_types.cpp",
+  "output": "CMakeFiles\\CMeshStudio.dir\\src\\math_types.cpp.obj"
+},
+{
+  "directory": "E:/Qt/CMeshStudio/build",
+  "command": "E:\\Qt\\Tools\\mingw1310_64\\bin\\g++.exe -DMINGW_HAS_SECURE_API=1 -DQT_CORE_LIB -DQT_GUI_LIB -DQT_NO_DEBUG -DQT_OPENGLWIDGETS_LIB -DQT_OPENGL_LIB -DQT_WIDGETS_LIB -DUNICODE -DWIN32 -DWIN64 -D_ENABLE_EXTENDED_ALIGNED_STORAGE -D_UNICODE -D_WIN64 -IE:/Qt/CMeshStudio/include -IE:/Qt/CMeshStudio/extlib/nlohmann-json-develop/include -IE:/Qt/CMeshStudio/extlib/libtcc/include -isystem E:/Qt/6.10.1/mingw_64/include/QtWidgets -isystem E:/Qt/6.10.1/mingw_64/include -isystem E:/Qt/6.10.1/mingw_64/include/QtCore -isystem E:/Qt/6.10.1/mingw_64/mkspecs/win32-g++ -isystem E:/Qt/6.10.1/mingw_64/include/QtGui -isystem E:/Qt/6.10.1/mingw_64/include/QtOpenGLWidgets -isystem E:/Qt/6.10.1/mingw_64/include/QtOpenGL -O3 -DNDEBUG -std=gnu++17 -Wall -Wextra -Wpedantic -o CMakeFiles\\CMeshStudio.dir\\src\\geometry.cpp.obj -c E:\\Qt\\CMeshStudio\\src\\geometry.cpp",
+  "file": "E:\\Qt\\CMeshStudio\\src\\geometry.cpp",
+  "output": "CMakeFiles\\CMeshStudio.dir\\src\\geometry.cpp.obj"
+},
+{
+  "directory": "E:/Qt/CMeshStudio/build",
+  "command": "E:\\Qt\\Tools\\mingw1310_64\\bin\\g++.exe -DMINGW_HAS_SECURE_API=1 -DQT_CORE_LIB -DQT_GUI_LIB -DQT_NO_DEBUG -DQT_OPENGLWIDGETS_LIB -DQT_OPENGL_LIB -DQT_WIDGETS_LIB -DUNICODE -DWIN32 -DWIN64 -D_ENABLE_EXTENDED_ALIGNED_STORAGE -D_UNICODE -D_WIN64 -IE:/Qt/CMeshStudio/include -IE:/Qt/CMeshStudio/extlib/nlohmann-json-develop/include -IE:/Qt/CMeshStudio/extlib/libtcc/include -isystem E:/Qt/6.10.1/mingw_64/include/QtWidgets -isystem E:/Qt/6.10.1/mingw_64/include -isystem E:/Qt/6.10.1/mingw_64/include/QtCore -isystem E:/Qt/6.10.1/mingw_64/mkspecs/win32-g++ -isystem E:/Qt/6.10.1/mingw_64/include/QtGui -isystem E:/Qt/6.10.1/mingw_64/include/QtOpenGLWidgets -isystem E:/Qt/6.10.1/mingw_64/include/QtOpenGL -O3 -DNDEBUG -std=gnu++17 -Wall -Wextra -Wpedantic -o CMakeFiles\\CMeshStudio.dir\\src\\tccengine.cpp.obj -c E:\\Qt\\CMeshStudio\\src\\tccengine.cpp",
+  "file": "E:\\Qt\\CMeshStudio\\src\\tccengine.cpp",
+  "output": "CMakeFiles\\CMeshStudio.dir\\src\\tccengine.cpp.obj"
+},
+{
+  "directory": "E:/Qt/CMeshStudio/build",
+  "command": "E:\\Qt\\Tools\\mingw1310_64\\bin\\g++.exe -DMINGW_HAS_SECURE_API=1 -DQT_CORE_LIB -DQT_GUI_LIB -DQT_NO_DEBUG -DQT_OPENGLWIDGETS_LIB -DQT_OPENGL_LIB -DQT_WIDGETS_LIB -DUNICODE -DWIN32 -DWIN64 -D_ENABLE_EXTENDED_ALIGNED_STORAGE -D_UNICODE -D_WIN64 -IE:/Qt/CMeshStudio/include -IE:/Qt/CMeshStudio/extlib/nlohmann-json-develop/include -IE:/Qt/CMeshStudio/extlib/libtcc/include -isystem E:/Qt/6.10.1/mingw_64/include/QtWidgets -isystem E:/Qt/6.10.1/mingw_64/include -isystem E:/Qt/6.10.1/mingw_64/include/QtCore -isystem E:/Qt/6.10.1/mingw_64/mkspecs/win32-g++ -isystem E:/Qt/6.10.1/mingw_64/include/QtGui -isystem E:/Qt/6.10.1/mingw_64/include/QtOpenGLWidgets -isystem E:/Qt/6.10.1/mingw_64/include/QtOpenGL -O3 -DNDEBUG -std=gnu++17 -Wall -Wextra -Wpedantic -o CMakeFiles\\CMeshStudio.dir\\src\\glviewport.cpp.obj -c E:\\Qt\\CMeshStudio\\src\\glviewport.cpp",
+  "file": "E:\\Qt\\CMeshStudio\\src\\glviewport.cpp",
+  "output": "CMakeFiles\\CMeshStudio.dir\\src\\glviewport.cpp.obj"
+},
+{
+  "directory": "E:/Qt/CMeshStudio/build",
+  "command": "E:\\Qt\\Tools\\mingw1310_64\\bin\\g++.exe -DMINGW_HAS_SECURE_API=1 -DQT_CORE_LIB -DQT_GUI_LIB -DQT_NO_DEBUG -DQT_OPENGLWIDGETS_LIB -DQT_OPENGL_LIB -DQT_WIDGETS_LIB -DUNICODE -DWIN32 -DWIN64 -D_ENABLE_EXTENDED_ALIGNED_STORAGE -D_UNICODE -D_WIN64 -IE:/Qt/CMeshStudio/include -IE:/Qt/CMeshStudio/extlib/nlohmann-json-develop/include -IE:/Qt/CMeshStudio/extlib/libtcc/include -isystem E:/Qt/6.10.1/mingw_64/include/QtWidgets -isystem E:/Qt/6.10.1/mingw_64/include -isystem E:/Qt/6.10.1/mingw_64/include/QtCore -isystem E:/Qt/6.10.1/mingw_64/mkspecs/win32-g++ -isystem E:/Qt/6.10.1/mingw_64/include/QtGui -isystem E:/Qt/6.10.1/mingw_64/include/QtOpenGLWidgets -isystem E:/Qt/6.10.1/mingw_64/include/QtOpenGL -O3 -DNDEBUG -std=gnu++17 -Wall -Wextra -Wpedantic -o CMakeFiles\\CMeshStudio.dir\\src\\csyntaxhighlighter.cpp.obj -c E:\\Qt\\CMeshStudio\\src\\csyntaxhighlighter.cpp",
+  "file": "E:\\Qt\\CMeshStudio\\src\\csyntaxhighlighter.cpp",
+  "output": "CMakeFiles\\CMeshStudio.dir\\src\\csyntaxhighlighter.cpp.obj"
+}
+]
