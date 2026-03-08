@@ -78,23 +78,7 @@ void PMainWindow::setupUI() {
   sceneTreeLayout->addLayout(sceneTreeButtons);
   sceneTreeLayout->addWidget(m_sceneTree);
   
-  // Bottom left: Property grid
-  QGroupBox* propertyGroup = new QGroupBox("属性编辑器");
-  QVBoxLayout* propertyLayout = new QVBoxLayout(propertyGroup);
-  
-  m_propertyLabel = new QLabel("请选择一个实体来编辑属性");
-  
-  // Create property table
-  m_propertyEditor = new QTableWidget();
-  m_propertyEditor->setColumnCount(2);
-  m_propertyEditor->setHorizontalHeaderLabels({"属性", "值"});
-  m_propertyEditor->setEnabled(false);
-  
-  propertyLayout->addWidget(m_propertyLabel);
-  propertyLayout->addWidget(m_propertyEditor);
-  
-  leftLayout->addWidget(sceneTreeGroup, 2);
-  leftLayout->addWidget(propertyGroup, 1);
+  leftLayout->addWidget(sceneTreeGroup);
   
   // Middle panel: GL Viewport
   QGroupBox* viewportGroup = new QGroupBox("视图端口");
@@ -154,13 +138,31 @@ void PMainWindow::setupUI() {
   viewportLayout->addLayout(viewportControls);
   viewportLayout->addWidget(m_glViewport);
   
-  // Right panel (2 parts)
+  // Right panel (TabControl with property and script editors)
   QWidget* rightPanel = new QWidget();
   QVBoxLayout* rightLayout = new QVBoxLayout(rightPanel);
   
-  // Top right: Script editor
-  QGroupBox* scriptGroup = new QGroupBox("脚本编辑器");
-  QVBoxLayout* scriptLayout = new QVBoxLayout(scriptGroup);
+  // Create TabControl
+  QTabWidget* tabWidget = new QTabWidget();
+  
+  // Property editor tab
+  QWidget* propertyTab = new QWidget();
+  QVBoxLayout* propertyTabLayout = new QVBoxLayout(propertyTab);
+  
+  m_propertyLabel = new QLabel("请选择一个实体来编辑属性");
+  
+  // Create property table
+  m_propertyEditor = new QTableWidget();
+  m_propertyEditor->setColumnCount(2);
+  m_propertyEditor->setHorizontalHeaderLabels({"属性", "值"});
+  m_propertyEditor->setEnabled(false);
+  
+  propertyTabLayout->addWidget(m_propertyLabel);
+  propertyTabLayout->addWidget(m_propertyEditor);
+  
+  // Script editor tab
+  QWidget* scriptTab = new QWidget();
+  QVBoxLayout* scriptTabLayout = new QVBoxLayout(scriptTab);
   
   // Script editor toolbar
   QHBoxLayout* scriptToolbar = new QHBoxLayout();
@@ -189,10 +191,14 @@ void PMainWindow::setupUI() {
   // Enable C syntax highlighting
   CSyntaxHighlighter* highlighter = new CSyntaxHighlighter(m_scriptEditor->document());
   
-  scriptLayout->addLayout(scriptToolbar);
-  scriptLayout->addWidget(m_scriptEditor);
+  scriptTabLayout->addLayout(scriptToolbar);
+  scriptTabLayout->addWidget(m_scriptEditor);
   
-  // Bottom right: Console
+  // Add tabs to TabControl
+  tabWidget->addTab(propertyTab, "属性");
+  tabWidget->addTab(scriptTab, "脚本");
+  
+  // Console
   QGroupBox* consoleGroup = new QGroupBox("控制台");
   QVBoxLayout* consoleLayout = new QVBoxLayout(consoleGroup);
   
@@ -201,7 +207,7 @@ void PMainWindow::setupUI() {
   
   consoleLayout->addWidget(m_console);
   
-  rightLayout->addWidget(scriptGroup, 2);
+  rightLayout->addWidget(tabWidget, 2);
   rightLayout->addWidget(consoleGroup, 1);
   
   // Add panels to main splitter
