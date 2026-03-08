@@ -247,6 +247,8 @@ extern "C" {
   // Error handling
   int cgeo_get_last_error();
   const char* cgeo_get_error_message();
+  void cgeo_set_error(int error, const char* message);
+  void cgeo_clear_error();
 }
 
 #endif // GEOMETRY_H

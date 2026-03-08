@@ -384,12 +384,58 @@ void PGLViewport::createBuffers() {
   // Buffers will be created in updateBuffers
 }
 
+// Helper function to compute hash for vertex data
+size_t computeVertexHash(const std::vector<PVertex>& vertices) {
+  std::size_t hash = 0;
+  for (const auto& vertex : vertices) {
+    PVector3 pos = vertex.position();
+    PVector3 norm = vertex.normal();
+    hash ^= std::hash<float>()(pos.x()) + 0x9e3779b9 + (hash << 6) + (hash >> 2);
+    hash ^= std::hash<float>()(pos.y()) + 0x9e3779b9 + (hash << 6) + (hash >> 2);
+    hash ^= std::hash<float>()(pos.z()) + 0x9e3779b9 + (hash << 6) + (hash >> 2);
+    hash ^= std::hash<float>()(norm.x()) + 0x9e3779b9 + (hash << 6) + (hash >> 2);
+    hash ^= std::hash<float>()(norm.y()) + 0x9e3779b9 + (hash << 6) + (hash >> 2);
+    hash ^= std::hash<float>()(norm.z()) + 0x9e3779b9 + (hash << 6) + (hash >> 2);
+  }
+  return hash;
+}
+
+// Helper function to compute hash for index data
+size_t computeIndexHash(const std::vector<unsigned int>& indices) {
+  std::size_t hash = 0;
+  for (unsigned int index : indices) {
+    hash ^= std::hash<unsigned int>()(index) + 0x9e3779b9 + (hash << 6) + (hash >> 2);
+  }
+  return hash;
+}
+
 void PGLViewport::updateBuffers() {
   if (!m_document) return;
   
   try {
     for (const auto& [id, entity] : m_document->entities()) {
       try {
+        const auto& meshVertices = entity->mesh().vertices();
+        const auto& indices = entity->mesh().indices();
+        
+        // Compute hashes for current geometry
+        size_t vertexHash = computeVertexHash(meshVertices);
+        size_t indexHash = computeIndexHash(indices);
+        
+        // Check if geometry has changed
+        bool geometryChanged = true;
+        if (m_vertexHashCache.find(id) != m_vertexHashCache.end() && 
+            m_indexHashCache.find(id) != m_indexHashCache.end()) {
+          if (m_vertexHashCache[id] == vertexHash && m_indexHashCache[id] == indexHash) {
+            geometryChanged = false;
+          }
+        }
+        
+        if (!geometryChanged) {
+          // Geometry hasn't changed, skip buffer update
+          continue;
+        }
+        
         // Check if buffers exist for this entity
         if (m_vaos.find(id) == m_vaos.end()) {
           // Create VAO
@@ -422,7 +468,6 @@ void PGLViewport::updateBuffers() {
         
         // Bind VBO and upload data
         glBindBuffer(GL_ARRAY_BUFFER, m_vbos[id]);
-        const auto& meshVertices = entity->mesh().vertices();
         if (!meshVertices.empty()) {
           // Create a temporary vector to hold vertex positions and normals
           std::vector<float> vertices;
@@ -444,7 +489,6 @@ void PGLViewport::updateBuffers() {
           
           // Bind EBO and upload data
           glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, m_ebos[id]);
-          const auto& indices = entity->mesh().indices();
           if (!indices.empty()) {
             glBufferData(GL_ELEMENT_ARRAY_BUFFER, indices.size() * sizeof(unsigned int), indices.data(), GL_STATIC_DRAW);
           }
@@ -460,6 +504,10 @@ void PGLViewport::updateBuffers() {
         
         // Unbind VAO
         glBindVertexArray(0);
+        
+        // Update cache
+        m_vertexHashCache[id] = vertexHash;
+        m_indexHashCache[id] = indexHash;
       } catch (const std::exception& e) {
         qDebug() << "Buffer update error for entity" << id << ":" << e.what();
         // 忽略单个实体的错误，继续处理其他实体

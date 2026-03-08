@@ -45,6 +45,10 @@ private:
   std::map<int, unsigned int> m_vaos;
   std::map<int, unsigned int> m_vbos;
   std::map<int, unsigned int> m_ebos;
+  
+  // Geometry cache to avoid reloading unchanged data
+  std::map<int, size_t> m_vertexHashCache;
+  std::map<int, size_t> m_indexHashCache;
 
 public:
   PGLViewport(QWidget* parent = nullptr);

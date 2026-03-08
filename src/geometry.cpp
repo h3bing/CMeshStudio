@@ -1096,6 +1096,23 @@ extern "C" {
     return g_errorMessage;
   }
   
+  // Set error
+  void cgeo_set_error(int error, const char* message) {
+    g_lastError = error;
+    if (message) {
+      strncpy(g_errorMessage, message, sizeof(g_errorMessage) - 1);
+      g_errorMessage[sizeof(g_errorMessage) - 1] = '\0';
+    } else {
+      g_errorMessage[0] = '\0';
+    }
+  }
+  
+  // Clear error
+  void cgeo_clear_error() {
+    g_lastError = 0;
+    g_errorMessage[0] = '\0';
+  }
+  
   // Math functions
   float cgeo_sin(float x) {
     return std::sin(x);
