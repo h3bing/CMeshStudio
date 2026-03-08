@@ -9,6 +9,32 @@
 std::map<int, std::shared_ptr<void>> PHandleManager::m_handles;
 int PHandleManager::m_nextHandle = 1000;
 
+// PTCCEngineManager static members
+std::unique_ptr<PTCCEngine> PTCCEngineManager::m_instance = nullptr;
+std::function<void(const std::string&)> PTCCEngineManager::m_currentErrorCallback = nullptr;
+
+PTCCEngine* PTCCEngineManager::getInstance() {
+  if (!m_instance) {
+    m_instance = std::make_unique<PTCCEngine>();
+    m_instance->initialize();
+  }
+  return m_instance.get();
+}
+
+void PTCCEngineManager::setCurrentErrorCallback(std::function<void(const std::string&)> callback) {
+  m_currentErrorCallback = callback;
+  if (m_instance) {
+    m_instance->setErrorCallback(callback);
+  }
+}
+
+void PTCCEngineManager::clearCurrentErrorCallback() {
+  m_currentErrorCallback = nullptr;
+  if (m_instance) {
+    m_instance->setErrorCallback(nullptr);
+  }
+}
+
 int PHandleManager::addHandle(std::shared_ptr<void> object) {
   int handle = m_nextHandle++;
   m_handles[handle] = object;

@@ -1,4 +1,5 @@
 #include "geometry.h"
+#include "tccengine.h"
 #include "nlohmann/json.hpp"
 #include <fstream>
 #include <iostream>
@@ -48,16 +49,10 @@ PEntity::PEntity(int id, const std::string& name)
   m_propertyGroups["外观"] = PPropertyGroup("外观");
   m_propertyGroups["位姿"] = PPropertyGroup("位姿");
   m_propertyGroups["参数"] = PPropertyGroup("参数");
-  
-  // 初始化TCC引擎
-  m_tccEngine = std::make_unique<PTCCEngine>();
-  m_tccEngine->initialize();
 }
 
 void PEntity::setErrorCallback(std::function<void(const std::string&)> callback) {
-  if (m_tccEngine) {
-    m_tccEngine->setErrorCallback(callback);
-  }
+  m_errorCallbackFunc = callback;
 }
 
 void PEntity::setInfoCallback(std::function<void(const std::string&)> callback) {
@@ -173,27 +168,18 @@ void PEntity::rebuild() {
 
     fullScript += m_scriptSource;
     
-    // Re-initialize TCC engine to avoid function redefinition errors
-    m_tccEngine = std::make_unique<PTCCEngine>();
+    // Get global TCC engine
+    PTCCEngine* tccEngine = PTCCEngineManager::getInstance();
     
-    // Set error callback
-    m_tccEngine->setErrorCallback([this](const std::string& message) {
+    // Set error callback for this entity
+    PTCCEngineManager::setCurrentErrorCallback([this](const std::string& message) {
       if (m_errorCallbackFunc) {
         m_errorCallbackFunc(message);
       }
     });
     
-    bool initialized = m_tccEngine->initialize();
-    if (!initialized) {
-      std::string error = "TCC引擎初始化失败: " + m_tccEngine->errorMessage();
-      if (m_errorCallbackFunc) {
-        m_errorCallbackFunc(error);
-      }
-      return;
-    }
-    
     // Compile and execute script
-    if (m_tccEngine) {
+    if (tccEngine) {
       // Log script compilation start
       if (m_infoCallbackFunc) {
         m_infoCallbackFunc("开始编译脚本: " + name());
@@ -204,16 +190,16 @@ void PEntity::rebuild() {
         m_infoCallbackFunc("脚本内容: " + fullScript);
       }
       
-      bool compiled = m_tccEngine->compile(fullScript);
+      bool compiled = tccEngine->compile(fullScript);
       if (compiled) {
         if (m_infoCallbackFunc) {
           m_infoCallbackFunc("脚本编译成功: " + name());
         }
         
-        bool executed = m_tccEngine->execute();
+        bool executed = tccEngine->execute();
         if (!executed) {
           // Handle execution error
-          std::string error = "脚本执行错误: " + m_tccEngine->errorMessage();
+          std::string error = "脚本执行错误: " + tccEngine->errorMessage();
           if (m_errorCallbackFunc) {
             m_errorCallbackFunc(error);
           }
@@ -245,7 +231,7 @@ void PEntity::rebuild() {
         }
       } else {
         // Handle compilation error
-        std::string error = "脚本编译错误: " + m_tccEngine->errorMessage();
+        std::string error = "脚本编译错误: " + tccEngine->errorMessage();
         if (m_errorCallbackFunc) {
           m_errorCallbackFunc(error);
         }
@@ -259,6 +245,9 @@ void PEntity::rebuild() {
         m_errorCallbackFunc(error);
       }
     }
+    
+    // Clear error callback
+    PTCCEngineManager::clearCurrentErrorCallback();
   } catch (const std::exception& e) {
     std::string error = "异常: " + std::string(e.what());
     if (m_errorCallbackFunc) {

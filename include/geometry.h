@@ -108,7 +108,6 @@ private:
   PMesh m_mesh;
   PMatrix4 m_transform;
   bool m_dirty;
-  std::unique_ptr<PTCCEngine> m_tccEngine;
   std::function<void(const std::string&)> m_errorCallbackFunc;
   std::function<void(const std::string&)> m_infoCallbackFunc;
 

@@ -41,6 +41,22 @@ public:
   void setErrorCallback(ErrorCallbackFunc callback) { m_errorCallbackFunc = callback; }
 };
 
+// 全局TCC引擎管理器
+class PTCCEngineManager
+{
+private:
+  static std::unique_ptr<PTCCEngine> m_instance;
+  static std::function<void(const std::string&)> m_currentErrorCallback;
+  
+  PTCCEngineManager() = delete;
+  ~PTCCEngineManager() = delete;
+
+public:
+  static PTCCEngine* getInstance();
+  static void setCurrentErrorCallback(std::function<void(const std::string&)> callback);
+  static void clearCurrentErrorCallback();
+};
+
 // 全局句柄管理器
 class PHandleManager
 {
