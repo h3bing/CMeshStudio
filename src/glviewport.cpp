@@ -10,6 +10,7 @@ PGLViewport::PGLViewport(QWidget* parent)
   : QOpenGLWidget(parent), m_selectedEntityId(-1), m_showAxes(true),
     m_mousePressed(false), m_mouseButton(Qt::NoButton),
     m_cameraDistance(10.0f), m_cameraYaw(0.0f), m_cameraPitch(0.0f),
+    m_cameraPosition(0.0f, 0.0f, 0.0f), // 初始相机位置
     m_perspective(true), // 默认使用透视投影
     m_orthoSize(5.0f), // 默认正交投影大小
     m_renderMode(SOLID), // 默认使用实体渲染
@@ -20,6 +21,7 @@ void PGLViewport::updateCamera() {
   m_viewMatrix.setToIdentity();
   
   // 应用相机变换
+  m_viewMatrix.translate(m_cameraPosition); // 应用平移
   m_viewMatrix.translate(0.0f, 0.0f, -m_cameraDistance);
   m_viewMatrix.rotate(m_cameraPitch, 1.0f, 0.0f, 0.0f);
   m_viewMatrix.rotate(m_cameraYaw, 0.0f, 1.0f, 0.0f);
@@ -47,7 +49,9 @@ void PGLViewport::mouseMoveEvent(QMouseEvent* event) {
     if (m_cameraPitch < -89.0f) m_cameraPitch = -89.0f;
   } else if (m_mouseButton == Qt::RightButton) {
     // 平移相机
-    m_viewMatrix.translate(-delta.x() * 0.01f, delta.y() * 0.01f, 0.0f);
+    float scale = m_cameraDistance * 0.001f; // 平移速度与相机距离相关
+    m_cameraPosition.setX(m_cameraPosition.x() - delta.x() * scale);
+    m_cameraPosition.setY(m_cameraPosition.y() + delta.y() * scale);
   }
   
   m_lastMousePos = event->pos();
@@ -114,6 +118,7 @@ void PGLViewport::resetView() {
   m_cameraYaw = 0.0f;
   m_cameraPitch = 0.0f;
   m_cameraDistance = 10.0f;
+  m_cameraPosition = QVector3D(0.0f, 0.0f, 0.0f); // 重置相机位置
   updateCamera();
   update();
 }
@@ -219,55 +224,102 @@ void PGLViewport::resizeGL(int w, int h) {
 }
 
 void PGLViewport::paintGL() {
-  // Clear buffers
-  glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-  
-  // Use shader program
-  glUseProgram(m_shaderProgram);
-  
-  // Update buffers
-  updateBuffers();
-  
-  // Render entities
-  if (m_document) {
-    for (const auto& [id, entity] : m_document->entities()) {
-      renderEntity(entity);
+  try {
+    // Clear buffers
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+    
+    // Use shader program
+    glUseProgram(m_shaderProgram);
+    
+    // Update buffers
+    updateBuffers();
+    
+    // Render entities
+    if (m_document) {
+      for (const auto& [id, entity] : m_document->entities()) {
+        try {
+          renderEntity(entity);
+        } catch (const std::exception& e) {
+          qDebug() << "Render error for entity" << id << ":" << e.what();
+          // 忽略单个实体的渲染错误，继续处理其他实体
+        } catch (...) {
+          qDebug() << "Unknown render error for entity" << id;
+        }
+      }
     }
-  }
-  
-  // Render axes if enabled
-  if (m_showAxes) {
-    renderAxes();
+    
+    // Render axes if enabled
+    if (m_showAxes) {
+      try {
+        renderAxes();
+      } catch (const std::exception& e) {
+        qDebug() << "Render axes error:" << e.what();
+      } catch (...) {
+        qDebug() << "Unknown render axes error";
+      }
+    }
+  } catch (const std::exception& e) {
+    qDebug() << "PaintGL error:" << e.what();
+  } catch (...) {
+    qDebug() << "Unknown PaintGL error";
   }
 }
 
 void PGLViewport::compileShaders() {
   try {
     // Vertex shader source
-    const char* vertexShaderSource = R"(
-      #version 330 core
-      layout (location = 0) in vec3 aPos;
-      
-      uniform mat4 model;
-      uniform mat4 view;
-      uniform mat4 projection;
-      
-      void main() {
-        gl_Position = projection * view * model * vec4(aPos, 1.0);
-      }
-    )";
+    const char* vertexShaderSource = "#version 330 core\n"
+                                    "layout (location = 0) in vec3 aPos;\n"
+                                    "layout (location = 1) in vec3 aNormal;\n"
+                                    "\n"
+                                    "uniform mat4 model;\n"
+                                    "uniform mat4 view;\n"
+                                    "uniform mat4 projection;\n"
+                                    "\n"
+                                    "out vec3 Normal;\n"
+                                    "out vec3 FragPos;\n"
+                                    "\n"
+                                    "void main() {\n"
+                                    "  gl_Position = projection * view * model * vec4(aPos, 1.0);\n"
+                                    "  FragPos = vec3(model * vec4(aPos, 1.0));\n"
+                                    "  Normal = mat3(transpose(inverse(model))) * aNormal;\n"
+                                    "}\n";
     
     // Fragment shader source
-    const char* fragmentShaderSource = R"(
-      #version 330 core
-      out vec4 FragColor;
-      
-      uniform vec4 color;
-      
-      void main() {
-        FragColor = color;
-      }
-    )";
+    const char* fragmentShaderSource = "#version 330 core\n"
+                                      "out vec4 FragColor;\n"
+                                      "\n"
+                                      "uniform vec4 color;\n"
+                                      "\n"
+                                      "in vec3 Normal;\n"
+                                      "in vec3 FragPos;\n"
+                                      "\n"
+                                      "uniform vec3 lightPos = vec3(1.0, 1.0, 1.0);\n"
+                                      "uniform vec3 viewPos = vec3(0.0, 0.0, 5.0);\n"
+                                      "uniform vec3 lightColor = vec3(1.0, 1.0, 1.0);\n"
+                                      "\n"
+                                      "void main() {\n"
+                                      "  // 环境光\n"
+                                      "  float ambientStrength = 0.1;\n"
+                                      "  vec3 ambient = ambientStrength * lightColor;\n"
+                                      "  \n"
+                                      "  // 漫反射\n"
+                                      "  vec3 norm = normalize(Normal);\n"
+                                      "  vec3 lightDir = normalize(lightPos - FragPos);\n"
+                                      "  float diff = max(dot(norm, lightDir), 0.0);\n"
+                                      "  vec3 diffuse = diff * lightColor;\n"
+                                      "  \n"
+                                      "  // 镜面反射\n"
+                                      "  float specularStrength = 0.5;\n"
+                                      "  vec3 viewDir = normalize(viewPos - FragPos);\n"
+                                      "  vec3 reflectDir = reflect(-lightDir, norm);\n"
+                                      "  float spec = pow(max(dot(viewDir, reflectDir), 0.0), 32);\n"
+                                      "  vec3 specular = specularStrength * spec * lightColor;\n"
+                                      "  \n"
+                                      "  // 最终颜色\n"
+                                      "  vec3 result = (ambient + diffuse + specular) * vec3(color);\n"
+                                      "  FragColor = vec4(result, color.w);\n"
+                                      "}\n";
     
     // Create vertex shader
     m_vertexShader = glCreateShader(GL_VERTEX_SHADER);
@@ -370,20 +422,40 @@ void PGLViewport::updateBuffers() {
         
         // Bind VBO and upload data
         glBindBuffer(GL_ARRAY_BUFFER, m_vbos[id]);
-        const auto& vertices = entity->vertices();
-        if (!vertices.empty()) {
-          glBufferData(GL_ARRAY_BUFFER, vertices.size() * sizeof(PVector3), vertices.data(), GL_STATIC_DRAW);
+        const auto& meshVertices = entity->mesh().vertices();
+        if (!meshVertices.empty()) {
+          // Create a temporary vector to hold vertex positions and normals
+          std::vector<float> vertices;
+          vertices.reserve(meshVertices.size() * 6); // 3 for position + 3 for normal
+          for (const auto& vertex : meshVertices) {
+            PVector3 pos = vertex.position();
+            PVector3 norm = vertex.normal();
+            // Add position
+            vertices.push_back(pos.x());
+            vertices.push_back(pos.y());
+            vertices.push_back(pos.z());
+            // Add normal
+            vertices.push_back(norm.x());
+            vertices.push_back(norm.y());
+            vertices.push_back(norm.z());
+          }
+          
+          glBufferData(GL_ARRAY_BUFFER, vertices.size() * sizeof(float), vertices.data(), GL_STATIC_DRAW);
           
           // Bind EBO and upload data
           glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, m_ebos[id]);
-          const auto& indices = entity->indices();
+          const auto& indices = entity->mesh().indices();
           if (!indices.empty()) {
             glBufferData(GL_ELEMENT_ARRAY_BUFFER, indices.size() * sizeof(unsigned int), indices.data(), GL_STATIC_DRAW);
           }
           
           // Set vertex attributes
-          glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(PVector3), (void*)0);
+          // Position attribute
+          glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void*)0);
           glEnableVertexAttribArray(0);
+          // Normal attribute
+          glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void*)(3 * sizeof(float)));
+          glEnableVertexAttribArray(1);
         }
         
         // Unbind VAO
@@ -475,6 +547,22 @@ void PGLViewport::renderEntity(const std::shared_ptr<PEntity>& entity) {
     glUniformMatrix4fv(modelLoc, 1, GL_FALSE, modelMatrix.data());
     glUniformMatrix4fv(viewLoc, 1, GL_FALSE, m_viewMatrix.data());
     glUniformMatrix4fv(projectionLoc, 1, GL_FALSE, m_projectionMatrix.data());
+    
+    // Calculate camera position from view matrix
+    QMatrix4x4 viewInverse = m_viewMatrix.inverted();
+    QVector3D cameraPos = viewInverse.column(3).toVector3D();
+    
+    // Set light position to camera position (light follows camera)
+    int lightPosLoc = glGetUniformLocation(m_shaderProgram, "lightPos");
+    if (lightPosLoc != -1) {
+      glUniform3f(lightPosLoc, cameraPos.x(), cameraPos.y(), cameraPos.z());
+    }
+    
+    // Set view position to camera position
+    int viewPosLoc = glGetUniformLocation(m_shaderProgram, "viewPos");
+    if (viewPosLoc != -1) {
+      glUniform3f(viewPosLoc, cameraPos.x(), cameraPos.y(), cameraPos.z());
+    }
     
     // Set color from properties if available
     float r = 1.0f, g = 0.5f, b = 0.2f, a = 1.0f;

@@ -159,6 +159,11 @@ public:
   
   PBoundBox boundingBox() const;
   void rebuild();
+  
+  // 加载单个实体文件
+  void load(const std::string& filename);
+  // 保存单个实体文件
+  void save(const std::string& filename) const;
 };
 
 class PDocument
@@ -185,6 +190,7 @@ public:
 extern "C" {
   // Entity management
   void cgeo_add_vertex(float x, float y, float z);
+  void cgeo_set_normal(float x, float y, float z);
   void cgeo_add_index(int index);
   void cgeo_clear_vertices();
   void cgeo_clear_indices();
@@ -198,8 +204,8 @@ extern "C" {
   void cgeo_set_prop_float(const char* name, float value);
   int cgeo_get_prop_int(const char* name);
   void cgeo_set_prop_int(const char* name, int value);
-  bool cgeo_get_prop_bool(const char* name);
-  void cgeo_set_prop_bool(const char* name, bool value);
+  int cgeo_get_prop_bool(const char* name);
+  void cgeo_set_prop_bool(const char* name, int value);
   void cgeo_get_prop_vector(const char* name, float* values, int size);
   void cgeo_set_prop_vector(const char* name, const float* values, int size);
   
@@ -232,6 +238,11 @@ extern "C" {
   // Document operations
   void cgeo_save_document(const char* filename);
   void cgeo_load_document(const char* filename);
+  
+  // Math functions
+  float cgeo_sin(float x);
+  float cgeo_cos(float x);
+  float cgeo_sqrt(float x);
   
   // Error handling
   int cgeo_get_last_error();

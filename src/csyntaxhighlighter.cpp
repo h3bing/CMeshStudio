@@ -129,7 +129,7 @@ CSyntaxHighlighter::CSyntaxHighlighter(QTextDocument* parent) : QSyntaxHighlight
   
   // Bracket rule
   HighlightingRule bracketRule;
-  bracketRule.pattern = QRegularExpression("[\\(\\)\\[\\]\\{\\}\\]");
+  bracketRule.pattern = QRegularExpression(R"([()\[\]{}])");
   bracketRule.format = m_bracketFormat;
   m_highlightingRules.append(bracketRule);
   

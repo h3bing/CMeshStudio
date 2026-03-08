@@ -24,6 +24,7 @@ private:
   float m_cameraDistance;
   float m_cameraYaw;
   float m_cameraPitch;
+  QVector3D m_cameraPosition; // 相机位置，用于平移
   bool m_perspective; // 透视/正交投影模式
   float m_orthoSize; // 正交投影大小
   

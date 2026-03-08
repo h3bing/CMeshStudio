@@ -1,0 +1,40 @@
+{
+  "version": "1.0",
+  "entities": [
+    {
+      "id": 3,
+      "name": "圆柱体",
+      "propertyGroups": {
+        "外观": {
+          "name": "外观",
+          "properties": {
+            "颜色": [0.0, 1.0, 0.0, 1.0]
+          }
+        },
+        "位姿": {
+          "name": "位姿",
+          "properties": {
+            "位置": [0.0, 0.0, 0.0],
+            "旋转": [0.0, 0.0, 0.0],
+            "缩放": [1.0, 1.0, 1.0]
+          }
+        },
+        "参数": {
+          "name": "参数",
+          "properties": {
+            "半径": 1.0,
+            "高度": 2.0,
+            "分段数": 32
+          }
+        }
+      },
+      "script": "void generate() {\n  float radius = cgeo_get_prop_float(\"半径\");\n  if (radius <= 0) radius = 1.0f;\n  \n  float height = cgeo_get_prop_float(\"高度\");\n  if (height <= 0) height = 2.0f;\n  \n  int segments = cgeo_get_prop_int(\"分段数\");\n  if (segments < 3) segments = 3;\n  \n  cgeo_clear_vertices();\n  cgeo_clear_indices();\n  \n  float halfHeight = height / 2.0f;\n  \n  // 生成顶部和底部顶点\n  for (int i = 0; i <= segments; i++) {\n    float angle = 2.0f * 3.14159f * i / segments;\n    float x = radius * cgeo_cos(angle);\n    float z = radius * cgeo_sin(angle);\n    \n    // 计算侧面法线（指向外）\n    float normalX = x / radius;\n    float normalZ = z / radius;\n    \n    // 顶部顶点\n    cgeo_add_vertex(x, halfHeight, z);\n    cgeo_set_normal(0.0f, 1.0f, 0.0f); // 顶部顶点法向量\n    \n    // 底部顶点\n    cgeo_add_vertex(x, -halfHeight, z);\n    cgeo_set_normal(0.0f, -1.0f, 0.0f); // 底部顶点法向量\n    \n    // 侧面顶部顶点（使用侧面法线）\n    cgeo_add_vertex(x, halfHeight, z);\n    cgeo_set_normal(normalX, 0.0f, normalZ); // 侧面法线\n    \n    // 侧面底部顶点（使用侧面法线）\n    cgeo_add_vertex(x, -halfHeight, z);\n    cgeo_set_normal(normalX, 0.0f, normalZ); // 侧面法线\n  }\n  \n  // 生成顶部和底部面\n  for (int i = 0; i < segments; i++) {\n    // 顶部面\n    cgeo_add_index(0);\n    cgeo_add_index(4 * i + 2);\n    cgeo_add_index(4 * ((i + 1) % segments) + 2);\n    \n    // 底部面\n    cgeo_add_index(1);\n    cgeo_add_index(4 * i + 3);\n    cgeo_add_index(4 * ((i + 1) % segments) + 3);\n  }\n  \n  // 生成侧面\n  for (int i = 0; i < segments; i++) {\n    int top1 = 4 * i + 4;\n    int top2 = 4 * ((i + 1) % segments) + 4;\n    int bottom1 = 4 * i + 5;\n    int bottom2 = 4 * ((i + 1) % segments) + 5;\n    \n    cgeo_add_index(top1);\n    cgeo_add_index(bottom1);\n    cgeo_add_index(top2);\n    \n    cgeo_add_index(top2);\n    cgeo_add_index(bottom1);\n    cgeo_add_index(bottom2);\n  }\n}",
+      "transform": [
+        1.0, 0.0, 0.0, 0.0,
+        0.0, 1.0, 0.0, 0.0,
+        0.0, 0.0, 1.0, 0.0,
+        0.0, 0.0, 0.0, 1.0
+      ]
+    }
+  ]
+}

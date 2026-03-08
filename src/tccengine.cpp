@@ -47,17 +47,20 @@ void PTCCEngine::errorCallback(void* opaque, const char* msg) {
     engine->m_errorMessage += msg;
     // 调用错误回调函数
     if (engine->m_errorCallbackFunc) {
-      engine->m_errorCallbackFunc(msg);
+      engine->m_errorCallbackFunc(std::string(msg));
     }
   }
   std::cerr << "TCC Error: " << msg << std::endl;
 }
+
+#include <cmath>
 
 void PTCCEngine::registerSymbols() {
   if (!m_tccState) return;
   
   // Register geometry C API functions
   tcc_add_symbol(m_tccState, "cgeo_add_vertex", (void*)cgeo_add_vertex);
+  tcc_add_symbol(m_tccState, "cgeo_set_normal", (void*)cgeo_set_normal);
   tcc_add_symbol(m_tccState, "cgeo_add_index", (void*)cgeo_add_index);
   tcc_add_symbol(m_tccState, "cgeo_clear_vertices", (void*)cgeo_clear_vertices);
   tcc_add_symbol(m_tccState, "cgeo_clear_indices", (void*)cgeo_clear_indices);
@@ -83,6 +86,11 @@ void PTCCEngine::registerSymbols() {
   tcc_add_symbol(m_tccState, "cgeo_bbox_get_max", (void*)cgeo_bbox_get_max);
   tcc_add_symbol(m_tccState, "cgeo_bbox_get_center", (void*)cgeo_bbox_get_center);
   tcc_add_symbol(m_tccState, "cgeo_bbox_get_size", (void*)cgeo_bbox_get_size);
+  
+  // Register math functions
+  tcc_add_symbol(m_tccState, "cgeo_sin", (void*)cgeo_sin);
+  tcc_add_symbol(m_tccState, "cgeo_cos", (void*)cgeo_cos);
+  tcc_add_symbol(m_tccState, "cgeo_sqrt", (void*)cgeo_sqrt);
 }
 
 bool PTCCEngine::initialize() {
@@ -93,25 +101,27 @@ bool PTCCEngine::initialize() {
     return false;
   }
   
-  // Set output type to memory (JIT mode)
-  tcc_set_output_type(m_tccState, TCC_OUTPUT_MEMORY);
-  
   // Set error callback
   tcc_set_error_func(m_tccState, this, errorCallback);
   
-  // Set library path - use application directory
-  wchar_t buffer[MAX_PATH];
-  GetModuleFileNameW(NULL, buffer, MAX_PATH);
-  std::wstring appPath(buffer);
-  std::wstring appDir = appPath.substr(0, appPath.find_last_of(L'\\'));
-  std::wstring libPath = appDir + L"\\extlib\\libtcc\\lib";
-  tcc_set_lib_path(m_tccState, std::string(libPath.begin(), libPath.end()).c_str());
+  // Set output type to memory (JIT mode)
+  tcc_set_output_type(m_tccState, TCC_OUTPUT_MEMORY);
+  
+  // Set library path - use absolute path
+  std::string libPath = "E:\\Qt\\CMeshStudio\\extlib\\libtcc\\lib";
+  tcc_set_lib_path(m_tccState, libPath.c_str());
   
   // Also add current directory as library path
   tcc_add_library_path(m_tccState, ".");
   
+  // Add MinGW include path for math.h
+  tcc_add_include_path(m_tccState, "E:\\Qt\\Tools\\mingw1310_64\\include");
+  
   // Register symbols
   registerSymbols();
+  
+  // Add math library
+  tcc_add_library(m_tccState, "m");
   
   return true;
 }

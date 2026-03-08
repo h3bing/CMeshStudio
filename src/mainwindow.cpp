@@ -49,12 +49,12 @@ void PMainWindow::setupUI() {
   
   // Scene tree buttons
   QHBoxLayout* sceneTreeButtons = new QHBoxLayout();
-  QPushButton* newBtn = new QPushButton(QIcon::fromTheme("document-new"), "新建");
-  QPushButton* openBtn = new QPushButton(QIcon::fromTheme("document-open"), "打开");
-  QPushButton* saveBtn = new QPushButton(QIcon::fromTheme("document-save"), "保存");
-  QPushButton* saveAsBtn = new QPushButton(QIcon::fromTheme("document-save-as"), "另存为");
-  QPushButton* newEntityBtn = new QPushButton(QIcon::fromTheme("list-add"), "新实体");
-  QPushButton* deleteEntityBtn = new QPushButton(QIcon::fromTheme("edit-delete"), "删除实体");
+  QPushButton* newBtn = new QPushButton("新建");
+  QPushButton* openBtn = new QPushButton("打开");
+  QPushButton* saveBtn = new QPushButton("保存");
+  QPushButton* saveAsBtn = new QPushButton("另存为");
+  QPushButton* newEntityBtn = new QPushButton("新实体");
+  QPushButton* deleteEntityBtn = new QPushButton("删除实体");
   
   // Set button widths to make them narrower
   int buttonWidth = 80;
@@ -106,21 +106,21 @@ void PMainWindow::setupUI() {
   // Render mode dropdown
   QLabel* renderModeLabel = new QLabel("渲染模式:");
   QComboBox* renderModeComboBox = new QComboBox();
-  renderModeComboBox->addItem(QIcon::fromTheme("view-points"), "点");
-  renderModeComboBox->addItem(QIcon::fromTheme("view-wireframe"), "线框");
-  renderModeComboBox->addItem(QIcon::fromTheme("view-grid"), "网格线");
-  renderModeComboBox->addItem(QIcon::fromTheme("view-solid"), "实体");
+  renderModeComboBox->addItem("点");
+  renderModeComboBox->addItem("线框");
+  renderModeComboBox->addItem("网格线");
+  renderModeComboBox->addItem("实体");
   
   // Standard view dropdown
   QLabel* viewLabel = new QLabel("标准视向:");
   QComboBox* viewComboBox = new QComboBox();
-  viewComboBox->addItem(QIcon::fromTheme("view-top"), "顶视图");
-  viewComboBox->addItem(QIcon::fromTheme("view-front"), "前视图");
-  viewComboBox->addItem(QIcon::fromTheme("view-side"), "侧视图");
-  viewComboBox->addItem(QIcon::fromTheme("view-perspective"), "透视图");
+  viewComboBox->addItem("顶视图");
+  viewComboBox->addItem("前视图");
+  viewComboBox->addItem("侧视图");
+  viewComboBox->addItem("透视图");
   
   // Reset view button
-  QPushButton* resetViewBtn = new QPushButton(QIcon::fromTheme("view-refresh"), "初始视向");
+  QPushButton* resetViewBtn = new QPushButton("初始视向");
   
   // Show axes checkbox
   QCheckBox* showAxesCheckBox = new QCheckBox("显示坐标轴");
@@ -129,12 +129,12 @@ void PMainWindow::setupUI() {
   // Projection mode dropdown
   QLabel* projectionLabel = new QLabel("投影方式:");
   QComboBox* projectionComboBox = new QComboBox();
-  projectionComboBox->addItem(QIcon::fromTheme("view-perspective"), "透视投影");
-  projectionComboBox->addItem(QIcon::fromTheme("view-flat"), "正交投影");
+  projectionComboBox->addItem("透视投影");
+  projectionComboBox->addItem("正交投影");
   projectionComboBox->setCurrentIndex(0); // 默认使用透视投影
   
   // Rebuild geometry button
-  QPushButton* rebuildBtn = new QPushButton(QIcon::fromTheme("view-refresh"), "重建几何");
+  QPushButton* rebuildBtn = new QPushButton("重建几何");
   
   viewportControls->addWidget(renderModeLabel);
   viewportControls->addWidget(renderModeComboBox);
@@ -164,10 +164,10 @@ void PMainWindow::setupUI() {
   
   // Script editor toolbar
   QHBoxLayout* scriptToolbar = new QHBoxLayout();
-  QPushButton* loadScriptBtn = new QPushButton(QIcon::fromTheme("document-open"), "加载");
-  QPushButton* saveScriptBtn = new QPushButton(QIcon::fromTheme("document-save"), "保存");
-  QPushButton* runScriptBtn = new QPushButton(QIcon::fromTheme("media-playback-start"), "运行");
-  QPushButton* aboutBtn = new QPushButton(QIcon::fromTheme("help-about"), "关于");
+  QPushButton* loadScriptBtn = new QPushButton("加载");
+  QPushButton* saveScriptBtn = new QPushButton("保存");
+  QPushButton* runScriptBtn = new QPushButton("运行");
+  QPushButton* aboutBtn = new QPushButton("关于");
   scriptToolbar->addWidget(loadScriptBtn);
   scriptToolbar->addWidget(saveScriptBtn);
   scriptToolbar->addWidget(runScriptBtn);
@@ -261,29 +261,62 @@ void PMainWindow::onNewEntity() {
   );
   
   if (!fileName.isEmpty()) {
-    // Load entity from file
-    m_document->load(fileName.toStdString());
+    // 检查文件扩展名
+    QFileInfo fileInfo(fileName);
+    QString extension = fileInfo.suffix().toLower();
     
-    // Set error and info callbacks for all entities
-    for (const auto& [id, entity] : m_document->entities()) {
+    if (extension == "cme") {
+      // 加载单个实体文件
+      auto entity = m_document->createEntity(fileInfo.baseName().toStdString());
+      
+      // Set error and info callbacks
       entity->setErrorCallback([this](const std::string& message) {
         this->logToConsole("TCC 错误: " + QString::fromStdString(message));
       });
       entity->setInfoCallback([this](const std::string& message) {
         this->logToConsole("INFO: " + QString::fromStdString(message));
       });
+      
+      // 加载实体文件
+      entity->load(fileName.toStdString());
+      
+      // Update scene tree
+      updateSceneTree();
+      
+      // Select the new entity
+      if (m_sceneTree->topLevelItemCount() > 0) {
+        QTreeWidgetItem* item = m_sceneTree->topLevelItem(m_sceneTree->topLevelItemCount() - 1);
+        m_sceneTree->setCurrentItem(item);
+      }
+      
+      logToConsole("加载实体文件: " + fileName);
+    } else if (extension == "cmd") {
+      // 加载多个实体文档
+      m_document->load(fileName.toStdString());
+      
+      // Set error and info callbacks for all entities
+      for (const auto& [id, entity] : m_document->entities()) {
+        entity->setErrorCallback([this](const std::string& message) {
+          this->logToConsole("TCC 错误: " + QString::fromStdString(message));
+        });
+        entity->setInfoCallback([this](const std::string& message) {
+          this->logToConsole("INFO: " + QString::fromStdString(message));
+        });
+      }
+      
+      // Update scene tree
+      updateSceneTree();
+      
+      // Select the first entity
+      if (m_sceneTree->topLevelItemCount() > 0) {
+        QTreeWidgetItem* item = m_sceneTree->topLevelItem(0);
+        m_sceneTree->setCurrentItem(item);
+      }
+      
+      logToConsole("加载文档文件: " + fileName);
+    } else {
+      logToConsole("不支持的文件格式: " + fileName);
     }
-    
-    // Update scene tree
-    updateSceneTree();
-    
-    // Select the first entity
-    if (m_sceneTree->topLevelItemCount() > 0) {
-      QTreeWidgetItem* item = m_sceneTree->topLevelItem(0);
-      m_sceneTree->setCurrentItem(item);
-    }
-    
-    logToConsole("加载实体文件: " + fileName);
   } else {
     // Create new entity
     auto entity = m_document->createEntity("新实体");

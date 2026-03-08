@@ -1,0 +1,39 @@
+{
+  "version": "1.0",
+  "entities": [
+    {
+      "id": 2,
+      "name": "球体",
+      "propertyGroups": {
+        "外观": {
+          "name": "外观",
+          "properties": {
+            "颜色": [1.0, 0.0, 0.0, 1.0]
+          }
+        },
+        "位姿": {
+          "name": "位姿",
+          "properties": {
+            "位置": [0.0, 0.0, 0.0],
+            "旋转": [0.0, 0.0, 0.0],
+            "缩放": [1.0, 1.0, 1.0]
+          }
+        },
+        "参数": {
+          "name": "参数",
+          "properties": {
+            "半径": 1.0,
+            "分段数": 32
+          }
+        }
+      },
+      "script": "void generate() {\n  float radius = cgeo_get_prop_float(\"半径\");\n  if (radius <= 0) radius = 1.0f;\n  \n  int segments = cgeo_get_prop_int(\"分段数\");\n  if (segments < 3) segments = 3;\n  \n  cgeo_clear_vertices();\n  cgeo_clear_indices();\n  \n  // 生成顶点\n  for (int i = 0; i <= segments; i++) {\n    float theta = 3.14159f * i / segments;\n    float sinTheta = cgeo_sin(theta);\n    float cosTheta = cgeo_cos(theta);\n    \n    for (int j = 0; j <= segments; j++) {\n      float phi = 2.0f * 3.14159f * j / segments;\n      float sinPhi = cgeo_sin(phi);\n      float cosPhi = cgeo_cos(phi);\n      \n      float x = radius * sinTheta * cosPhi;\n      float y = radius * cosTheta;\n      float z = radius * sinTheta * sinPhi;\n      \n      cgeo_add_vertex(x, y, z);\n      \n      // 计算法向量（球体的法向量就是归一化的位置向量）\n      float nx = sinTheta * cosPhi;\n      float ny = cosTheta;\n      float nz = sinTheta * sinPhi;\n      cgeo_set_normal(nx, ny, nz);\n    }\n  }\n  \n  // 生成索引\n  for (int i = 0; i < segments; i++) {\n    for (int j = 0; j < segments; j++) {\n      int first = i * (segments + 1) + j;\n      int second = first + segments + 1;\n      \n      cgeo_add_index(first);\n      cgeo_add_index(second);\n      cgeo_add_index(first + 1);\n      \n      cgeo_add_index(second);\n      cgeo_add_index(second + 1);\n      cgeo_add_index(first + 1);\n    }\n  }\n}",
+      "transform": [
+        1.0, 0.0, 0.0, 0.0,
+        0.0, 1.0, 0.0, 0.0,
+        0.0, 0.0, 1.0, 0.0,
+        0.0, 0.0, 0.0, 1.0
+      ]
+    }
+  ]
+}

@@ -2,6 +2,7 @@
 #include "nlohmann/json.hpp"
 #include <fstream>
 #include <iostream>
+#include <cmath>
 
 // PPropertyGroup implementations
 PPropertyValue PPropertyGroup::getProperty(const std::string& key) const {
@@ -69,7 +70,17 @@ PPropertyValue PEntity::getProperty(const std::string& key) const {
   if (it != m_propertyGroups.end()) {
     return it->second.getProperty(key);
   }
-  return PPropertyValue(0.0f);
+  // 尝试从其他属性组中查找
+  for (const auto& [groupName, group] : m_propertyGroups) {
+    if (groupName == "常规") continue;
+    const auto& properties = group.properties();
+    auto propIt = properties.find(key);
+    if (propIt != properties.end()) {
+      return propIt->second;
+    }
+  }
+  // 返回一个空的 variant，表示属性不存在
+  return PPropertyValue();
 }
 
 PPropertyValue PEntity::getProperty(const std::string& groupName, const std::string& key) const {
@@ -77,7 +88,8 @@ PPropertyValue PEntity::getProperty(const std::string& groupName, const std::str
   if (it != m_propertyGroups.end()) {
     return it->second.getProperty(key);
   }
-  return PPropertyValue(0.0f);
+  // 返回一个空的 variant，表示属性不存在
+  return PPropertyValue();
 }
 
 void PEntity::setProperty(const std::string& key, const PPropertyValue& value) {
@@ -87,11 +99,19 @@ void PEntity::setProperty(const std::string& key, const PPropertyValue& value) {
 }
 
 void PEntity::setProperty(const std::string& groupName, const std::string& key, const PPropertyValue& value) {
+  // 确保属性组存在，并且名称正确
+  if (m_propertyGroups.find(groupName) == m_propertyGroups.end()) {
+    m_propertyGroups.insert({groupName, PPropertyGroup(groupName)});
+  }
   m_propertyGroups[groupName].setProperty(key, value);
   m_dirty = true;
 }
 
 PPropertyGroup& PEntity::getPropertyGroup(const std::string& groupName) {
+  // 确保属性组存在，并且名称正确
+  if (m_propertyGroups.find(groupName) == m_propertyGroups.end()) {
+    m_propertyGroups.insert({groupName, PPropertyGroup(groupName)});
+  }
   return m_propertyGroups[groupName];
 }
 
@@ -100,17 +120,21 @@ PBoundBox PEntity::boundingBox() const {
 }
 
 void PEntity::rebuild() {
+  // Set current entity for C API
+  g_currentEntity = this;
+  
   try {
     // Clear existing geometry
     clearVertices();
     clearIndices();
     
-    // Set current entity for C API
-    g_currentEntity = this;
-    
     // Add function declarations to the script
     std::string fullScript = "// Function declarations\n";
+    fullScript += "float cgeo_sin(float x);\n";
+    fullScript += "float cgeo_cos(float x);\n";
+    fullScript += "float cgeo_sqrt(float x);\n\n";
     fullScript += "void cgeo_add_vertex(float x, float y, float z);\n";
+    fullScript += "void cgeo_set_normal(float x, float y, float z);\n";
     fullScript += "void cgeo_add_index(int index);\n";
     fullScript += "void cgeo_clear_vertices();\n";
     fullScript += "void cgeo_clear_indices();\n";
@@ -170,14 +194,31 @@ void PEntity::rebuild() {
     
     // Compile and execute script
     if (m_tccEngine) {
+      // Log script compilation start
+      if (m_infoCallbackFunc) {
+        m_infoCallbackFunc("开始编译脚本: " + name());
+      }
+      
+      // Log script content for debugging
+      if (m_infoCallbackFunc) {
+        m_infoCallbackFunc("脚本内容: " + fullScript);
+      }
+      
       bool compiled = m_tccEngine->compile(fullScript);
       if (compiled) {
+        if (m_infoCallbackFunc) {
+          m_infoCallbackFunc("脚本编译成功: " + name());
+        }
+        
         bool executed = m_tccEngine->execute();
         if (!executed) {
           // Handle execution error
           std::string error = "脚本执行错误: " + m_tccEngine->errorMessage();
           if (m_errorCallbackFunc) {
             m_errorCallbackFunc(error);
+          }
+          if (m_infoCallbackFunc) {
+            m_infoCallbackFunc(error);
           }
         } else {
           // Log entity geometry information to UI console
@@ -187,12 +228,29 @@ void PEntity::rebuild() {
           if (m_infoCallbackFunc) {
             m_infoCallbackFunc(info);
           }
+          
+          // Log vertex coordinates for debugging
+          if (m_infoCallbackFunc && mesh().vertices().size() > 0) {
+            std::string verticesInfo = "顶点坐标: ";
+            for (size_t i = 0; i < std::min(size_t(5), mesh().vertices().size()); i++) {
+              const auto& vertex = mesh().vertices()[i];
+              PVector3 pos = vertex.position();
+              verticesInfo += "(" + std::to_string(pos.x()) + ", " + std::to_string(pos.y()) + ", " + std::to_string(pos.z()) + ") ";
+            }
+            if (mesh().vertices().size() > 5) {
+              verticesInfo += "...";
+            }
+            m_infoCallbackFunc(verticesInfo);
+          }
         }
       } else {
         // Handle compilation error
         std::string error = "脚本编译错误: " + m_tccEngine->errorMessage();
         if (m_errorCallbackFunc) {
           m_errorCallbackFunc(error);
+        }
+        if (m_infoCallbackFunc) {
+          m_infoCallbackFunc(error);
         }
       }
     } else {
@@ -213,7 +271,214 @@ void PEntity::rebuild() {
     }
   }
   
+  // Reset current entity
+  g_currentEntity = nullptr;
+  
   m_dirty = false;
+}
+
+void PEntity::load(const std::string& filename) {
+  try {
+    std::ifstream file(filename);
+    if (!file.is_open()) {
+      throw std::runtime_error("无法打开文件: " + filename);
+    }
+    
+    nlohmann::json root;
+    try {
+      file >> root;
+    } catch (const nlohmann::json::parse_error& e) {
+      throw std::runtime_error("JSON解析错误: " + std::string(e.what()));
+    }
+    
+    // 加载实体数据
+    if (root.contains("entities") && root["entities"].is_array() && root["entities"].size() > 0) {
+      const auto& entityJson = root["entities"][0];
+      
+      // 加载名称
+      if (entityJson.contains("name")) {
+        m_name = entityJson["name"];
+      }
+      
+      // 加载属性组
+      if (entityJson.contains("propertyGroups")) {
+        m_propertyGroups.clear();
+        for (const auto& [groupName, groupJson] : entityJson["propertyGroups"].items()) {
+          // 首先创建属性组
+          m_propertyGroups.insert({groupName, PPropertyGroup(groupName)});
+          
+          if (groupJson.contains("properties")) {
+            for (const auto& [key, value] : groupJson["properties"].items()) {
+              try {
+                if (value.is_number_float()) {
+                  setProperty(groupName, key, PPropertyValue(value.get<float>()));
+                } else if (value.is_number_integer()) {
+                  setProperty(groupName, key, PPropertyValue(value.get<int>()));
+                } else if (value.is_boolean()) {
+                  setProperty(groupName, key, PPropertyValue(value.get<bool>()));
+                } else if (value.is_string()) {
+                  setProperty(groupName, key, PPropertyValue(value.get<std::string>()));
+                } else if (value.is_array()) {
+                  // 处理数组类型属性
+                  std::vector<float> vec;
+                  for (const auto& elem : value) {
+                    if (elem.is_number()) {
+                      vec.push_back(elem.get<float>());
+                    }
+                  }
+                  setProperty(groupName, key, PPropertyValue(vec));
+                }
+              } catch (const std::exception& e) {
+                // 忽略单个属性的错误，继续处理其他属性
+              }
+            }
+          }
+        }
+      } else if (entityJson.contains("properties")) {
+        // 兼容旧格式
+        for (const auto& [key, value] : entityJson["properties"].items()) {
+          try {
+            if (value.is_number_float()) {
+              setProperty(key, PPropertyValue(value.get<float>()));
+            } else if (value.is_number_integer()) {
+              setProperty(key, PPropertyValue(value.get<int>()));
+            } else if (value.is_boolean()) {
+              setProperty(key, PPropertyValue(value.get<bool>()));
+            } else if (value.is_string()) {
+              setProperty(key, PPropertyValue(value.get<std::string>()));
+            } else if (value.is_array()) {
+              // 处理数组类型属性
+              std::vector<float> vec;
+              for (const auto& elem : value) {
+                if (elem.is_number()) {
+                  vec.push_back(elem.get<float>());
+                }
+              }
+              setProperty(key, PPropertyValue(vec));
+            }
+          } catch (const std::exception& e) {
+            // 忽略单个属性的错误，继续处理其他属性
+          }
+        }
+      }
+      
+      // 加载脚本
+      if (entityJson.contains("script")) {
+        try {
+          setScriptSource(entityJson["script"]);
+        } catch (const std::exception& e) {
+          // 忽略脚本加载错误
+        }
+      }
+      
+      // 加载变换矩阵
+      if (entityJson.contains("transform")) {
+        try {
+          const auto& transformJson = entityJson["transform"];
+          if (transformJson.is_array() && transformJson.size() == 16) {
+            for (int i = 0; i < 16; i++) {
+              m_transform.data()[i] = transformJson[i].get<float>();
+            }
+          }
+        } catch (const std::exception& e) {
+          // 忽略变换矩阵加载错误
+        }
+      }
+      
+      // 重建几何
+      rebuild();
+      
+      // 调用信息回调
+      if (m_infoCallbackFunc) {
+        m_infoCallbackFunc("加载实体文件成功: " + filename);
+      }
+    } else {
+      throw std::runtime_error("无效的实体文件: 缺少entities数组");
+    }
+  } catch (const std::exception& e) {
+    // 调用错误回调
+    if (m_errorCallbackFunc) {
+      m_errorCallbackFunc(std::string("加载实体文件错误: ") + e.what());
+    }
+  } catch (...) {
+    // 调用错误回调
+    if (m_errorCallbackFunc) {
+      m_errorCallbackFunc("加载实体文件未知错误");
+    }
+  }
+}
+
+void PEntity::save(const std::string& filename) const {
+  try {
+    nlohmann::json root;
+    root["version"] = "1.0";
+    
+    nlohmann::json entities;
+    nlohmann::json entityJson;
+    
+    entityJson["id"] = m_id;
+    entityJson["name"] = m_name;
+    
+    // 保存属性组
+    nlohmann::json propertyGroups;
+    for (const auto& [groupName, group] : m_propertyGroups) {
+      nlohmann::json groupJson;
+      groupJson["name"] = group.name();
+      
+      nlohmann::json properties;
+      for (const auto& [key, value] : group.properties()) {
+        if (std::holds_alternative<float>(value)) {
+          properties[key] = std::get<float>(value);
+        } else if (std::holds_alternative<int>(value)) {
+          properties[key] = std::get<int>(value);
+        } else if (std::holds_alternative<bool>(value)) {
+          properties[key] = std::get<bool>(value);
+        } else if (std::holds_alternative<std::string>(value)) {
+          properties[key] = std::get<std::string>(value);
+        } else if (std::holds_alternative<std::vector<float>>(value)) {
+          properties[key] = std::get<std::vector<float>>(value);
+        }
+      }
+      groupJson["properties"] = properties;
+      propertyGroups[groupName] = groupJson;
+    }
+    entityJson["propertyGroups"] = propertyGroups;
+    
+    // 保存脚本
+    entityJson["script"] = m_scriptSource;
+    
+    // 保存变换矩阵
+    nlohmann::json transform;
+    for (int i = 0; i < 16; i++) {
+      transform.push_back(m_transform.data()[i]);
+    }
+    entityJson["transform"] = transform;
+    
+    entities.push_back(entityJson);
+    root["entities"] = entities;
+    
+    // 写入文件
+    std::ofstream file(filename);
+    if (!file.is_open()) {
+      throw std::runtime_error("无法打开文件: " + filename);
+    }
+    file << std::setw(2) << root << std::endl;
+    
+    // 调用信息回调
+    if (m_infoCallbackFunc) {
+      m_infoCallbackFunc("保存实体文件成功: " + filename);
+    }
+  } catch (const std::exception& e) {
+    // 调用错误回调
+    if (m_errorCallbackFunc) {
+      m_errorCallbackFunc(std::string("保存实体文件错误: ") + e.what());
+    }
+  } catch (...) {
+    // 调用错误回调
+    if (m_errorCallbackFunc) {
+      m_errorCallbackFunc("保存实体文件未知错误");
+    }
+  }
 }
 
 std::shared_ptr<PEntity> PDocument::createEntity(const std::string& name) {
@@ -333,13 +598,10 @@ void PDocument::load(const std::string& filename) {
       throw std::runtime_error("JSON解析错误: " + std::string(e.what()));
     }
     
-    m_entities.clear();
-    m_nextId = 1;
-    
     if (root.contains("entities")) {
       for (const auto& entityJson : root["entities"]) {
         try {
-          int id = entityJson["id"];
+          int id = m_nextId++;
           std::string name = entityJson["name"];
           auto entity = std::make_shared<PEntity>(id, name);
           
@@ -454,6 +716,16 @@ extern "C" {
     }
   }
   
+  void cgeo_set_normal(float x, float y, float z) {
+    if (g_currentEntity) {
+      auto& vertices = g_currentEntity->mesh().vertices();
+      if (!vertices.empty()) {
+        PVertex& vertex = const_cast<PVertex&>(vertices.back());
+        vertex.setNormal(PVector3(x, y, z));
+      }
+    }
+  }
+  
   void cgeo_add_index(int index) {
     if (g_currentEntity) {
       g_currentEntity->addIndex(index);
@@ -475,12 +747,54 @@ extern "C" {
   // Property management
   float cgeo_get_prop_float(const char* name) {
     if (g_currentEntity) {
-      auto value = g_currentEntity->getProperty(name);
-      if (std::holds_alternative<float>(value)) {
-        return std::get<float>(value);
+      // 首先尝试从默认的"常规"组获取
+      auto it = g_currentEntity->propertyGroups().find("常规");
+      if (it != g_currentEntity->propertyGroups().end()) {
+        const auto& properties = it->second.properties();
+        auto propIt = properties.find(name);
+        if (propIt != properties.end()) {
+          const auto& value = propIt->second;
+          if (std::holds_alternative<float>(value)) {
+            return std::get<float>(value);
+          } else if (std::holds_alternative<int>(value)) {
+            return static_cast<float>(std::get<int>(value));
+          }
+        }
+      }
+      
+      // 如果在"常规"组中找不到，尝试从其他属性组中获取
+      for (const auto& [groupName, group] : g_currentEntity->propertyGroups()) {
+        if (groupName == "常规") continue; // 跳过已经检查过的"常规"组
+        
+        const auto& properties = group.properties();
+        auto propIt = properties.find(name);
+        if (propIt != properties.end()) {
+          const auto& value = propIt->second;
+          if (std::holds_alternative<float>(value)) {
+            return std::get<float>(value);
+          } else if (std::holds_alternative<int>(value)) {
+            return static_cast<float>(std::get<int>(value));
+          }
+        }
       }
     }
-    return 0.0f;
+    
+    // 如果找不到属性，返回一个默认值
+    if (strcmp(name, "大小") == 0) {
+      return 1.0f;
+    } else if (strcmp(name, "半径") == 0) {
+      return 1.0f;
+    } else if (strcmp(name, "高度") == 0) {
+      return 2.0f;
+    } else if (strcmp(name, "分段数") == 0) {
+      return 32.0f;
+    } else if (strcmp(name, "管半径") == 0) {
+      return 0.3f;
+    } else if (strcmp(name, "管分段数") == 0) {
+      return 16.0f;
+    }
+    
+    return 1.0f; // 默认为1.0f，而不是0.0f，这样即使没有找到属性，几何体也能生成
   }
   
   void cgeo_set_prop_float(const char* name, float value) {
@@ -491,9 +805,35 @@ extern "C" {
   
   int cgeo_get_prop_int(const char* name) {
     if (g_currentEntity) {
-      auto value = g_currentEntity->getProperty(name);
-      if (std::holds_alternative<int>(value)) {
-        return std::get<int>(value);
+      // 首先尝试从默认的"常规"组获取
+      auto it = g_currentEntity->propertyGroups().find("常规");
+      if (it != g_currentEntity->propertyGroups().end()) {
+        const auto& properties = it->second.properties();
+        auto propIt = properties.find(name);
+        if (propIt != properties.end()) {
+          const auto& value = propIt->second;
+          if (std::holds_alternative<int>(value)) {
+            return std::get<int>(value);
+          } else if (std::holds_alternative<float>(value)) {
+            return static_cast<int>(std::get<float>(value));
+          }
+        }
+      }
+      
+      // 如果在"常规"组中找不到，尝试从其他属性组中获取
+      for (const auto& [groupName, group] : g_currentEntity->propertyGroups()) {
+        if (groupName == "常规") continue; // 跳过已经检查过的"常规"组
+        
+        const auto& properties = group.properties();
+        auto propIt = properties.find(name);
+        if (propIt != properties.end()) {
+          const auto& value = propIt->second;
+          if (std::holds_alternative<int>(value)) {
+            return std::get<int>(value);
+          } else if (std::holds_alternative<float>(value)) {
+            return static_cast<int>(std::get<float>(value));
+          }
+        }
       }
     }
     return 0;
@@ -505,19 +845,49 @@ extern "C" {
     }
   }
   
-  bool cgeo_get_prop_bool(const char* name) {
+  int cgeo_get_prop_bool(const char* name) {
     if (g_currentEntity) {
-      auto value = g_currentEntity->getProperty(name);
-      if (std::holds_alternative<bool>(value)) {
-        return std::get<bool>(value);
+      // 首先尝试从默认的"常规"组获取
+      auto it = g_currentEntity->propertyGroups().find("常规");
+      if (it != g_currentEntity->propertyGroups().end()) {
+        const auto& properties = it->second.properties();
+        auto propIt = properties.find(name);
+        if (propIt != properties.end()) {
+          const auto& value = propIt->second;
+          if (std::holds_alternative<bool>(value)) {
+            return std::get<bool>(value) ? 1 : 0;
+          } else if (std::holds_alternative<int>(value)) {
+            return std::get<int>(value) != 0 ? 1 : 0;
+          } else if (std::holds_alternative<float>(value)) {
+            return std::get<float>(value) != 0.0f ? 1 : 0;
+          }
+        }
+      }
+      
+      // 如果在"常规"组中找不到，尝试从其他属性组中获取
+      for (const auto& [groupName, group] : g_currentEntity->propertyGroups()) {
+        if (groupName == "常规") continue; // 跳过已经检查过的"常规"组
+        
+        const auto& properties = group.properties();
+        auto propIt = properties.find(name);
+        if (propIt != properties.end()) {
+          const auto& value = propIt->second;
+          if (std::holds_alternative<bool>(value)) {
+            return std::get<bool>(value) ? 1 : 0;
+          } else if (std::holds_alternative<int>(value)) {
+            return std::get<int>(value) != 0 ? 1 : 0;
+          } else if (std::holds_alternative<float>(value)) {
+            return std::get<float>(value) != 0.0f ? 1 : 0;
+          }
+        }
       }
     }
-    return false;
+    return 0;
   }
   
-  void cgeo_set_prop_bool(const char* name, bool value) {
+  void cgeo_set_prop_bool(const char* name, int value) {
     if (g_currentEntity) {
-      g_currentEntity->setProperty(name, PPropertyValue(value));
+      g_currentEntity->setProperty(name, PPropertyValue(value != 0));
     }
   }
   
@@ -646,11 +1016,38 @@ extern "C" {
   // Property management for vector types
   void cgeo_get_prop_vector(const char* name, float* values, int size) {
     if (g_currentEntity && values) {
-      auto value = g_currentEntity->getProperty(name);
-      if (std::holds_alternative<std::vector<float>>(value)) {
-        auto vec = std::get<std::vector<float>>(value);
-        for (int i = 0; i < size && i < static_cast<int>(vec.size()); ++i) {
-          values[i] = vec[i];
+      // 首先尝试从默认的"常规"组获取
+      auto it = g_currentEntity->propertyGroups().find("常规");
+      if (it != g_currentEntity->propertyGroups().end()) {
+        const auto& properties = it->second.properties();
+        auto propIt = properties.find(name);
+        if (propIt != properties.end()) {
+          const auto& value = propIt->second;
+          if (std::holds_alternative<std::vector<float>>(value)) {
+            auto vec = std::get<std::vector<float>>(value);
+            for (int i = 0; i < size && i < static_cast<int>(vec.size()); ++i) {
+              values[i] = vec[i];
+            }
+            return;
+          }
+        }
+      }
+      
+      // 如果在"常规"组中找不到，尝试从其他属性组中获取
+      for (const auto& [groupName, group] : g_currentEntity->propertyGroups()) {
+        if (groupName == "常规") continue; // 跳过已经检查过的"常规"组
+        
+        const auto& properties = group.properties();
+        auto propIt = properties.find(name);
+        if (propIt != properties.end()) {
+          const auto& value = propIt->second;
+          if (std::holds_alternative<std::vector<float>>(value)) {
+            auto vec = std::get<std::vector<float>>(value);
+            for (int i = 0; i < size && i < static_cast<int>(vec.size()); ++i) {
+              values[i] = vec[i];
+            }
+            return;
+          }
         }
       }
     }
@@ -697,5 +1094,18 @@ extern "C" {
   
   const char* cgeo_get_error_message() {
     return g_errorMessage;
+  }
+  
+  // Math functions
+  float cgeo_sin(float x) {
+    return std::sin(x);
+  }
+  
+  float cgeo_cos(float x) {
+    return std::cos(x);
+  }
+  
+  float cgeo_sqrt(float x) {
+    return std::sqrt(x);
   }
 }

@@ -1,0 +1,41 @@
+{
+  "version": "1.0",
+  "entities": [
+    {
+      "id": 5,
+      "name": "圆环体",
+      "propertyGroups": {
+        "外观": {
+          "name": "外观",
+          "properties": {
+            "颜色": [1.0, 1.0, 0.0, 1.0]
+          }
+        },
+        "位姿": {
+          "name": "位姿",
+          "properties": {
+            "位置": [0.0, 0.0, 0.0],
+            "旋转": [0.0, 0.0, 0.0],
+            "缩放": [1.0, 1.0, 1.0]
+          }
+        },
+        "参数": {
+          "name": "参数",
+          "properties": {
+            "半径": 1.0,
+            "管半径": 0.3,
+            "分段数": 32,
+            "管分段数": 16
+          }
+        }
+      },
+      "script": "void generate() {\n  float radius = cgeo_get_prop_float(\"半径\");\n  if (radius <= 0) radius = 1.0f;\n  \n  float tubeRadius = cgeo_get_prop_float(\"管半径\");\n  if (tubeRadius <= 0) tubeRadius = 0.3f;\n  \n  int segments = cgeo_get_prop_int(\"分段数\");\n  if (segments < 3) segments = 3;\n  \n  int tubeSegments = cgeo_get_prop_int(\"管分段数\");\n  if (tubeSegments < 3) tubeSegments = 3;\n  \n  cgeo_clear_vertices();\n  cgeo_clear_indices();\n  \n  for (int i = 0; i <= segments; i++) {\n    float angle1 = 2.0f * 3.14159f * i / segments;\n    float cos1 = cgeo_cos(angle1);\n    float sin1 = cgeo_sin(angle1);\n    \n    for (int j = 0; j <= tubeSegments; j++) {\n      float angle2 = 2.0f * 3.14159f * j / tubeSegments;\n      float cos2 = cgeo_cos(angle2);\n      float sin2 = cgeo_sin(angle2);\n      \n      float x = (radius + tubeRadius * cos2) * cos1;\n      float y = (radius + tubeRadius * cos2) * sin1;\n      float z = tubeRadius * sin2;\n      \n      cgeo_add_vertex(x, y, z);\n      \n      // 计算法向量\n      float nx = cos2 * cos1;\n      float ny = cos2 * sin1;\n      float nz = sin2;\n      cgeo_set_normal(nx, ny, nz);\n    }\n  }\n  \n  for (int i = 0; i < segments; i++) {\n    for (int j = 0; j < tubeSegments; j++) {\n      int first = i * (tubeSegments + 1) + j;\n      int second = first + tubeSegments + 1;\n      \n      cgeo_add_index(first);\n      cgeo_add_index(second);\n      cgeo_add_index(first + 1);\n      \n      cgeo_add_index(second);\n      cgeo_add_index(second + 1);\n      cgeo_add_index(first + 1);\n    }\n  }\n}",
+      "transform": [
+        1.0, 0.0, 0.0, 0.0,
+        0.0, 1.0, 0.0, 0.0,
+        0.0, 0.0, 1.0, 0.0,
+        0.0, 0.0, 0.0, 1.0
+      ]
+    }
+  ]
+}

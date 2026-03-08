@@ -1,29 +1,17 @@
-cmake_minimum_required(VERSION 3.14)
-project(CMeshStudio)
+cmake_minimum_required(VERSION 3.16)
+
+project(CMeshStudio VERSION 1.0.0 LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-# Set Qt6 path
-set(Qt6_DIR "E:/Qt/6.10.1/mingw_64/lib/cmake/Qt6")
+find_package(Qt6 COMPONENTS Widgets OpenGL OpenGLWidgets REQUIRED)
 
-# Set build directory
-set(CMAKE_BINARY_DIR ${CMAKE_SOURCE_DIR}/build)
-set(EXECUTABLE_OUTPUT_PATH ${CMAKE_BINARY_DIR})
-set(LIBRARY_OUTPUT_PATH ${CMAKE_BINARY_DIR})
+include_directories(include)
+include_directories(extlib/libtcc/include)
+include_directories(extlib/nlohmann-json-develop/include)
 
-# Include directories
-include_directories(
-    include
-    extlib/nlohmann-json-develop/include
-    extlib/libtcc/include
-)
-
-# Find Qt packages
-find_package(Qt6 REQUIRED COMPONENTS Widgets OpenGLWidgets)
-
-# Source files
-set(SOURCE_FILES
+set(SOURCES
     src/main.cpp
     src/mainwindow.cpp
     src/math_types.cpp
@@ -33,8 +21,7 @@ set(SOURCE_FILES
     src/csyntaxhighlighter.cpp
 )
 
-# Header files
-set(HEADER_FILES
+set(HEADERS
     include/mainwindow.h
     include/math_types.h
     include/geometry.h
@@ -43,21 +30,9 @@ set(HEADER_FILES
     include/csyntaxhighlighter.h
 )
 
-# Add executable
-add_executable(CMeshStudio ${SOURCE_FILES} ${HEADER_FILES})
+add_executable(CMeshStudio ${SOURCES} ${HEADERS})
 
-# Link libraries
-target_link_libraries(CMeshStudio
-    Qt6::Widgets
-    Qt6::OpenGLWidgets
-    ${CMAKE_SOURCE_DIR}/extlib/libtcc/lib/libtcc.a
-)
+target_link_libraries(CMeshStudio PRIVATE Qt6::Widgets Qt6::OpenGL Qt6::OpenGLWidgets)
+target_link_libraries(CMeshStudio PRIVATE ${CMAKE_SOURCE_DIR}/extlib/libtcc/lib/libtcc.a)
 
-# Set compiler flags
-if(MSVC)
-    target_compile_options(CMeshStudio PRIVATE /W4 /WX)
-    set_target_properties(CMeshStudio PROPERTIES WIN32_EXECUTABLE TRUE)
-else()
-    target_compile_options(CMeshStudio PRIVATE -Wall -Wextra -Wpedantic)
-    target_link_options(CMeshStudio PRIVATE -Wl,-subsystem,windows)
-endif()
+
