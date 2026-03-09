@@ -14,6 +14,7 @@ private:
   std::shared_ptr<PDocument> m_document;
   int m_selectedEntityId;
   bool m_showAxes; // 控制是否显示坐标轴
+  QColor m_backgroundColor; // 背景颜色
   
   // 鼠标操作相关
   bool m_mousePressed;
@@ -68,6 +69,10 @@ public:
   // 渲染模式控制
   void setRenderMode(int mode); // 0: 点, 1: 线框, 2: 网格线, 3: 实体
   
+  // 背景色控制
+  void setBackgroundColor(const QColor& color);
+  QColor backgroundColor() const { return m_backgroundColor; }
+  
 protected:
   void initializeGL() override;
   void resizeGL(int w, int h) override;
@@ -82,6 +87,7 @@ private:
   void createBuffers();
   void updateBuffers();
   void renderEntity(const std::shared_ptr<PEntity>& entity);
+  unsigned int createSimpleShaderProgram();
   void renderAxes();
   void updateCamera();
 }; 

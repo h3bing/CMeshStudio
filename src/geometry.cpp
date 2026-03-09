@@ -15,6 +15,15 @@ void PPropertyGroup::setProperty(const std::string& key, const PPropertyValue& v
   m_properties[key] = value;
 }
 
+PPropertyMeta& PPropertyGroup::getPropertyMeta(const std::string& key) {
+  return m_propertyMetas[key];
+}
+
+const PPropertyMeta* PPropertyGroup::getPropertyMeta(const std::string& key) const {
+  auto it = m_propertyMetas.find(key);
+  return it != m_propertyMetas.end() ? &(it->second) : nullptr;
+}
+
 // PEdge implementations
 PBoundBox PEdge::boundingBox() const {
   PBoundBox box;
@@ -42,8 +51,8 @@ static PColorRGBA g_currentColor;
 static int g_lastError = 0;
 static char g_errorMessage[256] = "";
 
-PEntity::PEntity(int id, const std::string& name) 
-  : m_id(id), m_name(name), m_transform(PMatrix4::identity()), m_dirty(false) {
+PEntity::PEntity(int id, const std::string& name, PDocument* document) 
+  : m_id(id), m_name(name), m_templateId(-1), m_document(document), m_transform(PMatrix4::identity()), m_dirty(false) {
   // 添加默认属性组
   m_propertyGroups["常规"] = PPropertyGroup("常规");
   m_propertyGroups["外观"] = PPropertyGroup("外观");
@@ -166,7 +175,18 @@ void PEntity::rebuild() {
     fullScript += "int cgeo_get_last_error();\n";
     fullScript += "const char* cgeo_get_error_message();\n\n";
 
-    fullScript += m_scriptSource;
+    // 使用模板脚本或本地脚本
+    if (m_templateId != -1 && m_document) {
+      auto templatePtr = m_document->getTemplate(m_templateId);
+      if (templatePtr) {
+        fullScript += templatePtr->script();
+      } else {
+        // 模板不存在，使用本地脚本
+        fullScript += m_scriptSource;
+      }
+    } else {
+      fullScript += m_scriptSource;
+    }
     
     // Get global TCC engine
     PTCCEngine* tccEngine = PTCCEngineManager::getInstance();
@@ -289,6 +309,20 @@ void PEntity::load(const std::string& filename) {
         m_name = entityJson["name"];
       }
       
+      // 加载模板ID
+      if (entityJson.contains("templateId")) {
+        m_templateId = entityJson["templateId"];
+      }
+      
+      // 加载脚本（兼容旧格式）
+      if (entityJson.contains("script")) {
+        try {
+          setScriptSource(entityJson["script"]);
+        } catch (const std::exception& e) {
+          // 忽略脚本加载错误
+        }
+      }
+      
       // 加载属性组
       if (entityJson.contains("propertyGroups")) {
         m_propertyGroups.clear();
@@ -351,15 +385,6 @@ void PEntity::load(const std::string& filename) {
         }
       }
       
-      // 加载脚本
-      if (entityJson.contains("script")) {
-        try {
-          setScriptSource(entityJson["script"]);
-        } catch (const std::exception& e) {
-          // 忽略脚本加载错误
-        }
-      }
-      
       // 加载变换矩阵
       if (entityJson.contains("transform")) {
         try {
@@ -407,6 +432,7 @@ void PEntity::save(const std::string& filename) const {
     
     entityJson["id"] = m_id;
     entityJson["name"] = m_name;
+    entityJson["templateId"] = m_templateId;
     
     // 保存属性组
     nlohmann::json propertyGroups;
@@ -432,9 +458,6 @@ void PEntity::save(const std::string& filename) const {
       propertyGroups[groupName] = groupJson;
     }
     entityJson["propertyGroups"] = propertyGroups;
-    
-    // 保存脚本
-    entityJson["script"] = m_scriptSource;
     
     // 保存变换矩阵
     nlohmann::json transform;
@@ -470,9 +493,86 @@ void PEntity::save(const std::string& filename) const {
   }
 }
 
+void PEntity::exportSTL(const std::string& filename) const {
+  try {
+    std::ofstream file(filename);
+    if (!file.is_open()) {
+      throw std::runtime_error("无法打开文件: " + filename);
+    }
+    
+    // 写入STL文件头
+    file << "solid " << m_name << std::endl;
+    
+    const auto& vertices = m_mesh.vertices();
+    const auto& indices = m_mesh.indices();
+    
+    // 遍历所有三角形面
+    for (size_t i = 0; i < indices.size(); i += 3) {
+      if (i + 2 >= indices.size()) break;
+      
+      unsigned int i1 = indices[i];
+      unsigned int i2 = indices[i + 1];
+      unsigned int i3 = indices[i + 2];
+      
+      if (i1 >= vertices.size() || i2 >= vertices.size() || i3 >= vertices.size()) {
+        continue;
+      }
+      
+      const PVertex& v1 = vertices[i1];
+      const PVertex& v2 = vertices[i2];
+      const PVertex& v3 = vertices[i3];
+      
+      // 计算面法线
+      PVector3 normal;
+      
+      // 计算面法线（使用叉积）
+      PVector3 edge1 = v2.position() - v1.position();
+      PVector3 edge2 = v3.position() - v1.position();
+      normal = edge1.cross(edge2);
+      
+      // 归一化法线
+      float length = normal.length();
+      if (length > 0.0001f) {
+        float invLength = 1.0f / length;
+        normal = PVector3(normal.x() * invLength, normal.y() * invLength, normal.z() * invLength);
+      } else {
+        normal = PVector3(0, 1, 0); // 默认向上
+      }
+      
+      // 写入面信息
+      file << "  facet normal " << normal.x() << " " << normal.y() << " " << normal.z() << std::endl;
+      file << "    outer loop" << std::endl;
+      file << "      vertex " << v1.position().x() << " " << v1.position().y() << " " << v1.position().z() << std::endl;
+      file << "      vertex " << v2.position().x() << " " << v2.position().y() << " " << v2.position().z() << std::endl;
+      file << "      vertex " << v3.position().x() << " " << v3.position().y() << " " << v3.position().z() << std::endl;
+      file << "    endloop" << std::endl;
+      file << "  endfacet" << std::endl;
+    }
+    
+    // 写入文件尾
+    file << "endsolid " << m_name << std::endl;
+    file.close();
+    
+    // 调用信息回调
+    if (m_infoCallbackFunc) {
+      m_infoCallbackFunc("导出STL文件成功: " + filename);
+    }
+  } catch (const std::exception& e) {
+    // 调用错误回调
+    if (m_errorCallbackFunc) {
+      m_errorCallbackFunc(std::string("导出STL文件错误: ") + e.what());
+    }
+  } catch (...) {
+    // 调用错误回调
+    if (m_errorCallbackFunc) {
+      m_errorCallbackFunc("导出STL文件未知错误");
+    }
+  }
+}
+
 std::shared_ptr<PEntity> PDocument::createEntity(const std::string& name) {
-  int id = m_nextId++;
-  auto entity = std::make_shared<PEntity>(id, name);
+  int id = generateEntityId();
+  auto entity = std::make_shared<PEntity>(id, name, this);
   m_entities[id] = entity;
   return entity;
 }
@@ -486,17 +586,67 @@ std::shared_ptr<PEntity> PDocument::getEntity(int id) const {
   return it != m_entities.end() ? it->second : nullptr;
 }
 
+std::shared_ptr<PScriptTemplate> PDocument::createTemplate(const std::string& name, const std::string& script) {
+  int id = generateTemplateId();
+  auto templatePtr = std::make_shared<PScriptTemplate>(id, name, script);
+  m_templates[id] = templatePtr;
+  return templatePtr;
+}
+
+std::shared_ptr<PScriptTemplate> PDocument::createTemplate(int id, const std::string& name, const std::string& script) {
+  auto templatePtr = std::make_shared<PScriptTemplate>(id, name, script);
+  m_templates[id] = templatePtr;
+  if (id >= m_nextTemplateId) {
+    m_nextTemplateId = id + 1;
+  }
+  return templatePtr;
+}
+
+void PDocument::updateTemplate(int id, const std::string& name, const std::string& script) {
+  auto it = m_templates.find(id);
+  if (it != m_templates.end()) {
+    it->second->setName(name);
+    it->second->setScript(script);
+  }
+}
+
+void PDocument::removeTemplate(int id) {
+  m_templates.erase(id);
+}
+
+std::shared_ptr<PScriptTemplate> PDocument::getTemplate(int id) const {
+  auto it = m_templates.find(id);
+  return it != m_templates.end() ? it->second : nullptr;
+}
+
 void PDocument::save(const std::string& filename) const {
   try {
     nlohmann::json root;
     root["version"] = "1.0";
     
+    // 保存模板
+    nlohmann::json templatesArray = nlohmann::json::array();
+    for (const auto& [id, templatePtr] : m_templates) {
+      try {
+        nlohmann::json templateJson;
+        templateJson["id"] = templatePtr->id();
+        templateJson["name"] = templatePtr->name();
+        templateJson["script"] = templatePtr->script();
+        templatesArray.push_back(templateJson);
+      } catch (const std::exception& e) {
+        // 忽略单个模板的错误，继续处理其他模板
+      }
+    }
+    root["templates"] = templatesArray;
+    
+    // 保存实体
     nlohmann::json entitiesArray = nlohmann::json::array();
     for (const auto& [id, entity] : m_entities) {
       try {
         nlohmann::json entityJson;
         entityJson["id"] = entity->id();
         entityJson["name"] = entity->name();
+        entityJson["templateId"] = entity->templateId();
         
         nlohmann::json propertyGroupsJson;
         for (const auto& [groupName, group] : entity->propertyGroups()) {
@@ -520,12 +670,6 @@ void PDocument::save(const std::string& filename) const {
           }
         }
         entityJson["propertyGroups"] = propertyGroupsJson;
-        
-        try {
-          entityJson["script"] = entity->scriptSource();
-        } catch (const std::exception& e) {
-          // 忽略脚本保存错误
-        }
         
         // Save transform
         try {
@@ -587,12 +731,36 @@ void PDocument::load(const std::string& filename) {
       throw std::runtime_error("JSON解析错误: " + std::string(e.what()));
     }
     
+    // 加载模板
+    if (root.contains("templates")) {
+      for (const auto& templateJson : root["templates"]) {
+        try {
+          int id = templateJson["id"];
+          std::string name = templateJson["name"];
+          std::string script = templateJson["script"];
+          auto templatePtr = std::make_shared<PScriptTemplate>(id, name, script);
+          m_templates[id] = templatePtr;
+          if (id >= m_nextTemplateId) {
+            m_nextTemplateId = id + 1;
+          }
+        } catch (const std::exception& e) {
+          // 忽略单个模板的错误，继续处理其他模板
+        }
+      }
+    }
+    
+    // 加载实体
     if (root.contains("entities")) {
       for (const auto& entityJson : root["entities"]) {
         try {
-          int id = m_nextId++;
+          int id = m_nextEntityId++;
           std::string name = entityJson["name"];
-          auto entity = std::make_shared<PEntity>(id, name);
+          auto entity = std::make_shared<PEntity>(id, name, this);
+          
+          // 加载模板ID
+          if (entityJson.contains("templateId")) {
+            entity->setTemplateId(entityJson["templateId"]);
+          }
           
           if (entityJson.contains("propertyGroups")) {
             for (const auto& [groupName, groupJson] : entityJson["propertyGroups"].items()) {
@@ -651,14 +819,6 @@ void PDocument::load(const std::string& filename) {
             }
           }
           
-          if (entityJson.contains("script")) {
-            try {
-              entity->setScriptSource(entityJson["script"]);
-            } catch (const std::exception& e) {
-              // 忽略脚本加载错误
-            }
-          }
-          
           // Load transform
           if (entityJson.contains("transform")) {
             try {
@@ -676,8 +836,8 @@ void PDocument::load(const std::string& filename) {
           }
           
           m_entities[id] = entity;
-          if (id >= m_nextId) {
-            m_nextId = id + 1;
+          if (id >= m_nextEntityId) {
+            m_nextEntityId = id + 1;
           }
           
           // Rebuild geometry after loading

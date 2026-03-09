@@ -9,6 +9,68 @@
 #include <memory>
 #include <variant>
 
+// 属性元数据类，用于存储属性的额外信息
+class PPropertyMeta
+{
+private:
+  std::string m_displayName;      // 显示名称
+  std::string m_description;      // 描述
+  bool m_readOnly = false;         // 是否只读
+  
+  // 范围信息
+  bool m_hasRange = false;
+  float m_minValue = 0.0f;
+  float m_maxValue = 1.0f;
+  
+  // 枚举信息
+  bool m_isEnum = false;
+  std::map<int, std::string> m_enumValues; // 枚举值映射
+  
+  // 数组信息
+  bool m_isArray = false;
+  int m_arraySize = 0;
+  
+public:
+  PPropertyMeta() {}
+  PPropertyMeta(const std::string& displayName) : m_displayName(displayName) {}
+  
+  // Getters and setters
+  const std::string& displayName() const { return m_displayName; }
+  void setDisplayName(const std::string& displayName) { m_displayName = displayName; }
+  
+  const std::string& description() const { return m_description; }
+  void setDescription(const std::string& description) { m_description = description; }
+  
+  bool readOnly() const { return m_readOnly; }
+  void setReadOnly(bool readOnly) { m_readOnly = readOnly; }
+  
+  // Range methods
+  bool hasRange() const { return m_hasRange; }
+  void setRange(float min, float max) {
+    m_hasRange = true;
+    m_minValue = min;
+    m_maxValue = max;
+  }
+  float minValue() const { return m_minValue; }
+  float maxValue() const { return m_maxValue; }
+  
+  // Enum methods
+  bool isEnum() const { return m_isEnum; }
+  void addEnumValue(int value, const std::string& name) {
+    m_isEnum = true;
+    m_enumValues[value] = name;
+  }
+  const std::map<int, std::string>& enumValues() const { return m_enumValues; }
+  
+  // Array methods
+  bool isArray() const { return m_isArray; }
+  void setArraySize(int size) {
+    m_isArray = true;
+    m_arraySize = size;
+  }
+  int arraySize() const { return m_arraySize; }
+};
+
 // 属性类型
 typedef std::variant<float, int, bool, std::string, std::vector<float>> PPropertyValue;
 
@@ -18,6 +80,7 @@ class PPropertyGroup
 private:
   std::string m_name;
   std::map<std::string, PPropertyValue> m_properties;
+  std::map<std::string, PPropertyMeta> m_propertyMetas; // 属性元数据
 
 public:
   PPropertyGroup() : m_name("常规") {}
@@ -29,6 +92,10 @@ public:
   PPropertyValue getProperty(const std::string& key) const;
   void setProperty(const std::string& key, const PPropertyValue& value);
   const std::map<std::string, PPropertyValue>& properties() const { return m_properties; }
+  
+  // 属性元数据
+  PPropertyMeta& getPropertyMeta(const std::string& key);
+  const PPropertyMeta* getPropertyMeta(const std::string& key) const;
   
   // 支持范围for循环
   auto begin() const { return m_properties.begin(); }
@@ -98,13 +165,17 @@ public:
   PBoundBox boundingBox() const;
 };
 
+class PDocument;
+
 class PEntity
 {
 private:
   int m_id;
   std::string m_name;
+  int m_templateId; // 模板ID
+  std::string m_scriptSource; // 脚本源代码
+  PDocument* m_document; // 文档指针
   std::map<std::string, PPropertyGroup> m_propertyGroups;
-  std::string m_scriptSource;
   PMesh m_mesh;
   PMatrix4 m_transform;
   bool m_dirty;
@@ -112,11 +183,23 @@ private:
   std::function<void(const std::string&)> m_infoCallbackFunc;
 
 public:
-  PEntity(int id, const std::string& name);
+  PEntity(int id, const std::string& name, PDocument* document = nullptr);
   
   int id() const { return m_id; }
   std::string name() const { return m_name; }
   void setName(const std::string& name) { m_name = name; m_dirty = true; }
+  
+  // 模板相关
+  int templateId() const { return m_templateId; }
+  void setTemplateId(int templateId) { m_templateId = templateId; m_dirty = true; }
+  
+  // 脚本相关
+  const std::string& scriptSource() const { return m_scriptSource; }
+  void setScriptSource(const std::string& script) { m_scriptSource = script; m_dirty = true; }
+  
+  // 文档相关
+  void setDocument(PDocument* document) { m_document = document; }
+  PDocument* document() const { return m_document; }
   
   // 设置错误回调函数
   void setErrorCallback(std::function<void(const std::string&)> callback);
@@ -129,9 +212,6 @@ public:
   void setProperty(const std::string& groupName, const std::string& key, const PPropertyValue& value);
   const std::map<std::string, PPropertyGroup>& propertyGroups() const { return m_propertyGroups; }
   PPropertyGroup& getPropertyGroup(const std::string& groupName);
-  
-  std::string scriptSource() const { return m_scriptSource; }
-  void setScriptSource(const std::string& source) { m_scriptSource = source; m_dirty = true; }
   
   const PMesh& mesh() const { return m_mesh; }
   PMesh& mesh() { return m_mesh; }
@@ -163,26 +243,62 @@ public:
   void load(const std::string& filename);
   // 保存单个实体文件
   void save(const std::string& filename) const;
+  // 导出为STL文件
+  void exportSTL(const std::string& filename) const;
+};
+
+// 脚本模板类
+class PScriptTemplate
+{
+private:
+  int m_id;
+  std::string m_name;
+  std::string m_script;
+
+public:
+  PScriptTemplate(int id, const std::string& name, const std::string& script)
+    : m_id(id), m_name(name), m_script(script) {}
+  
+  int id() const { return m_id; }
+  std::string name() const { return m_name; }
+  void setName(const std::string& name) { m_name = name; }
+  std::string script() const { return m_script; }
+  void setScript(const std::string& script) { m_script = script; }
 };
 
 class PDocument
 {
 private:
   std::map<int, std::shared_ptr<PEntity>> m_entities;
-  int m_nextId;
+  std::map<int, std::shared_ptr<PScriptTemplate>> m_templates;
+  int m_nextEntityId;
+  int m_nextTemplateId;
 
 public:
-  PDocument() : m_nextId(1) {}
+  PDocument() : m_nextEntityId(1), m_nextTemplateId(1000) {}
   
+  // 实体管理
   std::shared_ptr<PEntity> createEntity(const std::string& name);
   void removeEntity(int id);
   std::shared_ptr<PEntity> getEntity(int id) const;
   const std::map<int, std::shared_ptr<PEntity>>& entities() const { return m_entities; }
   
+  // 模板管理
+  std::shared_ptr<PScriptTemplate> createTemplate(const std::string& name, const std::string& script);
+  std::shared_ptr<PScriptTemplate> createTemplate(int id, const std::string& name, const std::string& script);
+  void removeTemplate(int id);
+  void updateTemplate(int id, const std::string& name, const std::string& script);
+  std::shared_ptr<PScriptTemplate> getTemplate(int id) const;
+  const std::map<int, std::shared_ptr<PScriptTemplate>>& templates() const { return m_templates; }
+  
   PBoundBox boundingBox() const;
   
   void save(const std::string& filename) const;
   void load(const std::string& filename);
+  
+  // ID生成
+  int generateEntityId() { return m_nextEntityId++; }
+  int generateTemplateId() { return m_nextTemplateId++; }
 };
 
 // C API for scripts

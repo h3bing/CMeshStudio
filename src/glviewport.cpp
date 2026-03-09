@@ -14,7 +14,8 @@ PGLViewport::PGLViewport(QWidget* parent)
     m_perspective(true), // 默认使用透视投影
     m_orthoSize(5.0f), // 默认正交投影大小
     m_renderMode(SOLID), // 默认使用实体渲染
-    m_shaderProgram(0), m_vertexShader(0), m_fragmentShader(0) {}
+    m_shaderProgram(0), m_vertexShader(0), m_fragmentShader(0),
+    m_backgroundColor(26, 26, 26) {} // 默认背景色
 
 void PGLViewport::updateCamera() {
   // 重置视图矩阵
@@ -162,6 +163,11 @@ void PGLViewport::setRenderMode(int mode) {
   update();
 }
 
+void PGLViewport::setBackgroundColor(const QColor& color) {
+  m_backgroundColor = color;
+  update();
+}
+
 PGLViewport::~PGLViewport() {
   makeCurrent();
   
@@ -193,7 +199,7 @@ void PGLViewport::initializeGL() {
   initializeOpenGLFunctions();
   
   // Set clear color
-  glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
+  glClearColor(m_backgroundColor.redF(), m_backgroundColor.greenF(), m_backgroundColor.blueF(), m_backgroundColor.alphaF());
   
   // Enable depth testing
   glEnable(GL_DEPTH_TEST);
@@ -225,6 +231,9 @@ void PGLViewport::resizeGL(int w, int h) {
 
 void PGLViewport::paintGL() {
   try {
+    // Update clear color
+    glClearColor(m_backgroundColor.redF(), m_backgroundColor.greenF(), m_backgroundColor.blueF(), m_backgroundColor.alphaF());
+    
     // Clear buffers
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     
@@ -649,8 +658,11 @@ void PGLViewport::renderEntity(const std::shared_ptr<PEntity>& entity) {
         glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
         break;
       case MESH:
-        // 使用线框模式渲染三角形
+        // 先渲染实体
+        glDrawElements(GL_TRIANGLES, indices.size(), GL_UNSIGNED_INT, 0);
+        // 再渲染线框
         glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+        glUniform4f(glGetUniformLocation(m_shaderProgram, "color"), 0.0f, 0.0f, 0.0f, 1.0f); // 黑色线框
         glDrawElements(GL_TRIANGLES, indices.size(), GL_UNSIGNED_INT, 0);
         glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
         break;
@@ -676,7 +688,88 @@ void PGLViewport::renderEntity(const std::shared_ptr<PEntity>& entity) {
   }
 }
 
+unsigned int PGLViewport::createSimpleShaderProgram() {
+  // 顶点着色器源码
+  const char* vertexShaderSource = "#version 330 core\n"
+                                  "layout (location = 0) in vec3 aPos;\n"
+                                  "\n"
+                                  "uniform mat4 model;\n"
+                                  "uniform mat4 view;\n"
+                                  "uniform mat4 projection;\n"
+                                  "\n"
+                                  "void main() {\n"
+                                  "  gl_Position = projection * view * model * vec4(aPos, 1.0);\n"
+                                  "}\n";
+  
+  // 片段着色器源码
+  const char* fragmentShaderSource = "#version 330 core\n"
+                                    "out vec4 FragColor;\n"
+                                    "\n"
+                                    "uniform vec4 color;\n"
+                                    "\n"
+                                    "void main() {\n"
+                                    "  FragColor = color;\n"
+                                    "}\n";
+  
+  // 创建顶点着色器
+  unsigned int vertexShader = glCreateShader(GL_VERTEX_SHADER);
+  glShaderSource(vertexShader, 1, &vertexShaderSource, nullptr);
+  glCompileShader(vertexShader);
+  
+  // 检查顶点着色器错误
+  int success;
+  char infoLog[512];
+  glGetShaderiv(vertexShader, GL_COMPILE_STATUS, &success);
+  if (!success) {
+    glGetShaderInfoLog(vertexShader, 512, nullptr, infoLog);
+    qDebug() << "Vertex shader compilation failed:" << infoLog;
+    return 0;
+  }
+  
+  // 创建片段着色器
+  unsigned int fragmentShader = glCreateShader(GL_FRAGMENT_SHADER);
+  glShaderSource(fragmentShader, 1, &fragmentShaderSource, nullptr);
+  glCompileShader(fragmentShader);
+  
+  // 检查片段着色器错误
+  glGetShaderiv(fragmentShader, GL_COMPILE_STATUS, &success);
+  if (!success) {
+    glGetShaderInfoLog(fragmentShader, 512, nullptr, infoLog);
+    qDebug() << "Fragment shader compilation failed:" << infoLog;
+    return 0;
+  }
+  
+  // 创建着色器程序
+  unsigned int shaderProgram = glCreateProgram();
+  glAttachShader(shaderProgram, vertexShader);
+  glAttachShader(shaderProgram, fragmentShader);
+  glLinkProgram(shaderProgram);
+  
+  // 检查链接错误
+  glGetProgramiv(shaderProgram, GL_LINK_STATUS, &success);
+  if (!success) {
+    glGetProgramInfoLog(shaderProgram, 512, nullptr, infoLog);
+    qDebug() << "Shader program linking failed:" << infoLog;
+    return 0;
+  }
+  
+  // 删除着色器
+  glDeleteShader(vertexShader);
+  glDeleteShader(fragmentShader);
+  
+  return shaderProgram;
+}
+
 void PGLViewport::renderAxes() {
+  // 创建简单的着色器程序（无光照）
+  unsigned int simpleShaderProgram = createSimpleShaderProgram();
+  if (simpleShaderProgram == 0) {
+    return;
+  }
+  
+  // 使用简单着色器程序
+  glUseProgram(simpleShaderProgram);
+  
   // Create axis vertices
   float axisLength = 2.0f;
   float vertices[] = {
@@ -705,9 +798,9 @@ void PGLViewport::renderAxes() {
   glEnableVertexAttribArray(0);
   
   // Get uniform locations
-  int modelLoc = glGetUniformLocation(m_shaderProgram, "model");
-  int viewLoc = glGetUniformLocation(m_shaderProgram, "view");
-  int projectionLoc = glGetUniformLocation(m_shaderProgram, "projection");
+  int modelLoc = glGetUniformLocation(simpleShaderProgram, "model");
+  int viewLoc = glGetUniformLocation(simpleShaderProgram, "view");
+  int projectionLoc = glGetUniformLocation(simpleShaderProgram, "projection");
   
   // Set model matrix (identity)
   QMatrix4x4 modelMatrix;
@@ -718,18 +811,22 @@ void PGLViewport::renderAxes() {
   glUniformMatrix4fv(projectionLoc, 1, GL_FALSE, m_projectionMatrix.data());
   
   // Draw X-axis (red)
-  glUniform4f(glGetUniformLocation(m_shaderProgram, "color"), 1.0f, 0.0f, 0.0f, 1.0f);
+  glUniform4f(glGetUniformLocation(simpleShaderProgram, "color"), 1.0f, 0.0f, 0.0f, 1.0f);
   glDrawArrays(GL_LINES, 0, 2);
   
   // Draw Y-axis (green)
-  glUniform4f(glGetUniformLocation(m_shaderProgram, "color"), 0.0f, 1.0f, 0.0f, 1.0f);
+  glUniform4f(glGetUniformLocation(simpleShaderProgram, "color"), 0.0f, 1.0f, 0.0f, 1.0f);
   glDrawArrays(GL_LINES, 2, 2);
   
   // Draw Z-axis (blue)
-  glUniform4f(glGetUniformLocation(m_shaderProgram, "color"), 0.0f, 0.0f, 1.0f, 1.0f);
+  glUniform4f(glGetUniformLocation(simpleShaderProgram, "color"), 0.0f, 0.0f, 1.0f, 1.0f);
   glDrawArrays(GL_LINES, 4, 2);
   
   // Clean up
   glDeleteVertexArrays(1, &vao);
   glDeleteBuffers(1, &vbo);
+  glDeleteProgram(simpleShaderProgram);
+  
+  // 切换回原来的着色器程序
+  glUseProgram(m_shaderProgram);
 }

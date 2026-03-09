@@ -140,6 +140,13 @@ bool PTCCEngine::initialize() {
   // Also add current directory as library path
   tcc_add_library_path(m_tccState, ".");
   
+  // Add build directory as library path (contains libtcc1-64.a)
+  tcc_add_library_path(m_tccState, "E:\\Qt\\CMeshStudio\\build");
+  
+  // Add MinGW library paths for libtcc1-64.a
+  tcc_add_library_path(m_tccState, "E:\\Qt\\Tools\\mingw1310_64\\lib");
+  tcc_add_library_path(m_tccState, "E:\\Qt\\Tools\\mingw1310_64\\lib\\gcc\\x86_64-w64-mingw32\\13.1.0");
+  
   // Add MinGW include path for math.h
   tcc_add_include_path(m_tccState, "E:\\Qt\\Tools\\mingw1310_64\\include");
   
@@ -153,13 +160,47 @@ bool PTCCEngine::initialize() {
 }
 
 bool PTCCEngine::compile(const std::string& code) {
+  // Clear previous error message
+  m_errorMessage.clear();
+  
+  // Reset TCC state to avoid function redefinition errors
+  if (m_tccState) {
+    tcc_delete(m_tccState);
+  }
+  m_tccState = tcc_new();
   if (!m_tccState) {
-    m_errorMessage = "TCC state not initialized";
+    m_errorMessage = "Failed to create TCC state";
     return false;
   }
   
-  // Clear previous error message
-  m_errorMessage.clear();
+  // Set error callback
+  tcc_set_error_func(m_tccState, this, errorCallback);
+  
+  // Set output type to memory (JIT mode)
+  tcc_set_output_type(m_tccState, TCC_OUTPUT_MEMORY);
+  
+  // Set library path - use absolute path
+  std::string libPath = "E:\\Qt\\CMeshStudio\\extlib\\libtcc\\lib";
+  tcc_set_lib_path(m_tccState, libPath.c_str());
+  
+  // Also add current directory as library path
+  tcc_add_library_path(m_tccState, ".");
+  
+  // Add build directory as library path (contains libtcc1-64.a)
+  tcc_add_library_path(m_tccState, "E:\\Qt\\CMeshStudio\\build");
+  
+  // Add MinGW library paths for libtcc1-64.a
+  tcc_add_library_path(m_tccState, "E:\\Qt\\Tools\\mingw1310_64\\lib");
+  tcc_add_library_path(m_tccState, "E:\\Qt\\Tools\\mingw1310_64\\lib\\gcc\\x86_64-w64-mingw32\\13.1.0");
+  
+  // Add MinGW include path for math.h
+  tcc_add_include_path(m_tccState, "E:\\Qt\\Tools\\mingw1310_64\\include");
+  
+  // Register symbols
+  registerSymbols();
+  
+  // Add math library
+  tcc_add_library(m_tccState, "m");
   
   // Compile the code
   int result = tcc_compile_string(m_tccState, code.c_str());

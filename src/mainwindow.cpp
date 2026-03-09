@@ -26,7 +26,7 @@ PMainWindow::PMainWindow(QWidget* parent)
   
   // Set window properties
   setWindowTitle("CMeshStudio");
-  setGeometry(100, 100, 1600, 800);
+  setGeometry(100, 100, 1600, 1000);
 }
 
 PMainWindow::~PMainWindow() {
@@ -39,16 +39,16 @@ void PMainWindow::setupUI() {
   // Create main splitter
   QSplitter* mainSplitter = new QSplitter(Qt::Horizontal, centralWidget);
   
-  // Left panel (2 parts)
+  // Left panel (3 parts: document, property/script, console)
   QWidget* leftPanel = new QWidget();
   QVBoxLayout* leftLayout = new QVBoxLayout(leftPanel);
   
-  // Top left: Document
-  QGroupBox* sceneTreeGroup = new QGroupBox("文档");
-  QVBoxLayout* sceneTreeLayout = new QVBoxLayout(sceneTreeGroup);
+  // Top left: Document (Entity and Template tabs)
+  QGroupBox* documentGroup = new QGroupBox("文档");
+  QVBoxLayout* documentLayout = new QVBoxLayout(documentGroup);
   
-  // Scene tree buttons
-  QHBoxLayout* sceneTreeButtons = new QHBoxLayout();
+  // Document buttons
+  QHBoxLayout* documentButtons = new QHBoxLayout();
   QPushButton* newBtn = new QPushButton("新建");
   QPushButton* openBtn = new QPushButton("打开");
   QPushButton* saveBtn = new QPushButton("保存");
@@ -64,23 +64,123 @@ void PMainWindow::setupUI() {
   saveAsBtn->setFixedWidth(buttonWidth);
   newEntityBtn->setFixedWidth(buttonWidth);
   deleteEntityBtn->setFixedWidth(buttonWidth);
-  sceneTreeButtons->addWidget(newBtn);
-  sceneTreeButtons->addWidget(openBtn);
-  sceneTreeButtons->addWidget(saveBtn);
-  sceneTreeButtons->addWidget(saveAsBtn);
-  sceneTreeButtons->addWidget(newEntityBtn);
-  sceneTreeButtons->addWidget(deleteEntityBtn);
+  documentButtons->addWidget(newBtn);
+  documentButtons->addWidget(openBtn);
+  documentButtons->addWidget(saveBtn);
+  documentButtons->addWidget(saveAsBtn);
+  documentButtons->addWidget(newEntityBtn);
+  documentButtons->addWidget(deleteEntityBtn);
   
-  // Scene tree widget
+  // Create tab control for entities and templates
+  QTabWidget* documentTabWidget = new QTabWidget();
+  
+  // Entity tab
+  QWidget* entityTab = new QWidget();
+  QVBoxLayout* entityTabLayout = new QVBoxLayout(entityTab);
   m_sceneTree = new QTreeWidget();
   m_sceneTree->setHeaderLabel("实体列表");
+  entityTabLayout->addWidget(m_sceneTree);
+  documentTabWidget->addTab(entityTab, "实体");
   
-  sceneTreeLayout->addLayout(sceneTreeButtons);
-  sceneTreeLayout->addWidget(m_sceneTree);
+  // Template tab
+  QWidget* templateTab = new QWidget();
+  QVBoxLayout* templateTabLayout = new QVBoxLayout(templateTab);
   
-  leftLayout->addWidget(sceneTreeGroup);
+  // Template toolbar
+  QHBoxLayout* templateToolbar = new QHBoxLayout();
+  QPushButton* newTemplateBtn = new QPushButton("新建模板");
+  QPushButton* editTemplateBtn = new QPushButton("编辑模板");
+  QPushButton* deleteTemplateBtn = new QPushButton("删除模板");
+  templateToolbar->addWidget(newTemplateBtn);
+  templateToolbar->addWidget(editTemplateBtn);
+  templateToolbar->addWidget(deleteTemplateBtn);
+  templateToolbar->addStretch();
   
-  // Middle panel: GL Viewport
+  // Template list
+  m_templateList = new QListWidget();
+  
+  templateTabLayout->addLayout(templateToolbar);
+  templateTabLayout->addWidget(m_templateList);
+  
+  documentTabWidget->addTab(templateTab, "模板");
+  
+  documentLayout->addLayout(documentButtons);
+  documentLayout->addWidget(documentTabWidget);
+  
+  leftLayout->addWidget(documentGroup, 1);
+  
+  // Middle left: Property and script editors (TabControl)
+  QTabWidget* tabWidget = new QTabWidget();
+  
+  // Property editor tab
+  QWidget* propertyTab = new QWidget();
+  QVBoxLayout* propertyTabLayout = new QVBoxLayout(propertyTab);
+  
+  m_propertyLabel = new QLabel("请选择一个实体来编辑属性");
+  
+  // Create property table
+  m_propertyEditor = new QTableWidget();
+  m_propertyEditor->setColumnCount(2);
+  m_propertyEditor->setHorizontalHeaderLabels({"属性", "值"});
+  m_propertyEditor->setEnabled(false);
+  
+  propertyTabLayout->addWidget(m_propertyLabel);
+  propertyTabLayout->addWidget(m_propertyEditor);
+  
+  // Script editor tab
+  QWidget* scriptTab = new QWidget();
+  QVBoxLayout* scriptTabLayout = new QVBoxLayout(scriptTab);
+  
+  // Script editor toolbar
+  QHBoxLayout* scriptToolbar = new QHBoxLayout();
+  QPushButton* loadScriptBtn = new QPushButton("加载");
+  QPushButton* saveScriptBtn = new QPushButton("保存");
+  QPushButton* runScriptBtn = new QPushButton("运行");
+  QPushButton* aboutBtn = new QPushButton("关于");
+  scriptToolbar->addWidget(loadScriptBtn);
+  scriptToolbar->addWidget(saveScriptBtn);
+  scriptToolbar->addWidget(runScriptBtn);
+  scriptToolbar->addStretch();
+  scriptToolbar->addWidget(aboutBtn);
+  
+  m_scriptEditor = new QTextEdit();
+  m_scriptEditor->setEnabled(true);
+  m_scriptEditor->setReadOnly(false);
+  m_scriptEditor->setPlainText("void generate() {\n  // 在这里添加几何生成代码\n}\n");
+  
+  // Set font for better code display
+  QFont font;
+  font.setFamily("Courier New");
+  font.setFixedPitch(true);
+  font.setPointSize(10);
+  m_scriptEditor->setFont(font);
+  
+  // Enable C syntax highlighting
+  CSyntaxHighlighter* highlighter = new CSyntaxHighlighter(m_scriptEditor->document());
+  
+  scriptTabLayout->addLayout(scriptToolbar);
+  scriptTabLayout->addWidget(m_scriptEditor);
+  
+  // Add tabs to TabControl
+  tabWidget->addTab(propertyTab, "属性");
+  tabWidget->addTab(scriptTab, "脚本");
+  
+
+  
+  leftLayout->addWidget(tabWidget, 2);
+  
+  // Bottom left: Console
+  QGroupBox* consoleGroup = new QGroupBox("控制台");
+  QVBoxLayout* consoleLayout = new QVBoxLayout(consoleGroup);
+  
+  m_console = new QTextEdit();
+  m_console->setReadOnly(true);
+  
+  consoleLayout->addWidget(m_console);
+  
+  leftLayout->addWidget(consoleGroup, 1);
+  
+  // Right panel: GL Viewport
   QGroupBox* viewportGroup = new QGroupBox("视图端口");
   QVBoxLayout* viewportLayout = new QVBoxLayout(viewportGroup);
   
@@ -138,86 +238,13 @@ void PMainWindow::setupUI() {
   viewportLayout->addLayout(viewportControls);
   viewportLayout->addWidget(m_glViewport);
   
-  // Right panel (TabControl with property and script editors)
-  QWidget* rightPanel = new QWidget();
-  QVBoxLayout* rightLayout = new QVBoxLayout(rightPanel);
-  
-  // Create TabControl
-  QTabWidget* tabWidget = new QTabWidget();
-  
-  // Property editor tab
-  QWidget* propertyTab = new QWidget();
-  QVBoxLayout* propertyTabLayout = new QVBoxLayout(propertyTab);
-  
-  m_propertyLabel = new QLabel("请选择一个实体来编辑属性");
-  
-  // Create property table
-  m_propertyEditor = new QTableWidget();
-  m_propertyEditor->setColumnCount(2);
-  m_propertyEditor->setHorizontalHeaderLabels({"属性", "值"});
-  m_propertyEditor->setEnabled(false);
-  
-  propertyTabLayout->addWidget(m_propertyLabel);
-  propertyTabLayout->addWidget(m_propertyEditor);
-  
-  // Script editor tab
-  QWidget* scriptTab = new QWidget();
-  QVBoxLayout* scriptTabLayout = new QVBoxLayout(scriptTab);
-  
-  // Script editor toolbar
-  QHBoxLayout* scriptToolbar = new QHBoxLayout();
-  QPushButton* loadScriptBtn = new QPushButton("加载");
-  QPushButton* saveScriptBtn = new QPushButton("保存");
-  QPushButton* runScriptBtn = new QPushButton("运行");
-  QPushButton* aboutBtn = new QPushButton("关于");
-  scriptToolbar->addWidget(loadScriptBtn);
-  scriptToolbar->addWidget(saveScriptBtn);
-  scriptToolbar->addWidget(runScriptBtn);
-  scriptToolbar->addStretch();
-  scriptToolbar->addWidget(aboutBtn);
-  
-  m_scriptEditor = new QTextEdit();
-  m_scriptEditor->setEnabled(true);
-  m_scriptEditor->setReadOnly(false);
-  m_scriptEditor->setPlainText("void generate() {\n  // 在这里添加几何生成代码\n}\n");
-  
-  // Set font for better code display
-  QFont font;
-  font.setFamily("Courier New");
-  font.setFixedPitch(true);
-  font.setPointSize(10);
-  m_scriptEditor->setFont(font);
-  
-  // Enable C syntax highlighting
-  CSyntaxHighlighter* highlighter = new CSyntaxHighlighter(m_scriptEditor->document());
-  
-  scriptTabLayout->addLayout(scriptToolbar);
-  scriptTabLayout->addWidget(m_scriptEditor);
-  
-  // Add tabs to TabControl
-  tabWidget->addTab(propertyTab, "属性");
-  tabWidget->addTab(scriptTab, "脚本");
-  
-  // Console
-  QGroupBox* consoleGroup = new QGroupBox("控制台");
-  QVBoxLayout* consoleLayout = new QVBoxLayout(consoleGroup);
-  
-  m_console = new QTextEdit();
-  m_console->setReadOnly(true);
-  
-  consoleLayout->addWidget(m_console);
-  
-  rightLayout->addWidget(tabWidget, 2);
-  rightLayout->addWidget(consoleGroup, 1);
-  
   // Add panels to main splitter
   mainSplitter->addWidget(leftPanel);
   mainSplitter->addWidget(viewportGroup);
-  mainSplitter->addWidget(rightPanel);
   
   // Set initial sizes
   QList<int> sizes;
-  sizes << 250 << 750 << 400; // 左侧边栏更窄，右侧边栏更宽
+  sizes << 400 << 1000; // 左侧边栏包含文档、属性/脚本和控制台，右侧为视图端口
   mainSplitter->setSizes(sizes);
   
   // Set central widget
@@ -247,8 +274,14 @@ void PMainWindow::setupUI() {
     m_glViewport->setPerspective(index == 0); // 0: 透视投影, 1: 正交投影
   });
   
-  // Update scene tree
+  // Connect template management buttons
+  connect(newTemplateBtn, &QPushButton::clicked, this, &PMainWindow::onNewTemplate);
+  connect(editTemplateBtn, &QPushButton::clicked, this, &PMainWindow::onEditTemplate);
+  connect(deleteTemplateBtn, &QPushButton::clicked, this, &PMainWindow::onDeleteTemplate);
+  
+  // Update scene tree and template list
   updateSceneTree();
+  updateTemplateList();
 }
 
 void PMainWindow::onNewEntity() {
@@ -324,31 +357,84 @@ void PMainWindow::onNewEntity() {
       logToConsole("不支持的文件格式: " + fileName);
     }
   } else {
-    // Create new entity
-    auto entity = m_document->createEntity("新实体");
+    // Create new entity dialog with template selection
+    QDialog* dialog = new QDialog(this);
+    dialog->setWindowTitle("创建新实体");
+    dialog->setFixedSize(400, 200);
     
-    // Set error and info callbacks
-    entity->setErrorCallback([this](const std::string& message) {
-      this->logToConsole("TCC 错误: " + QString::fromStdString(message));
+    QVBoxLayout* layout = new QVBoxLayout(dialog);
+    
+    QLabel* nameLabel = new QLabel("实体名称:");
+    QLineEdit* nameEdit = new QLineEdit();
+    nameEdit->setText("新实体");
+    
+    QLabel* templateLabel = new QLabel("选择模板:");
+    QComboBox* templateComboBox = new QComboBox();
+    templateComboBox->addItem("无", -1);
+    
+    // Add all available templates
+    for (const auto& [id, templatePtr] : m_document->templates()) {
+      templateComboBox->addItem(QString::fromStdString(templatePtr->name()), id);
+    }
+    
+    QHBoxLayout* buttonLayout = new QHBoxLayout();
+    QPushButton* okButton = new QPushButton("确定");
+    QPushButton* cancelButton = new QPushButton("取消");
+    buttonLayout->addWidget(okButton);
+    buttonLayout->addWidget(cancelButton);
+    
+    layout->addWidget(nameLabel);
+    layout->addWidget(nameEdit);
+    layout->addWidget(templateLabel);
+    layout->addWidget(templateComboBox);
+    layout->addLayout(buttonLayout);
+    
+    connect(okButton, &QPushButton::clicked, [this, dialog, nameEdit, templateComboBox]() {
+      QString name = nameEdit->text();
+      if (name.isEmpty()) {
+        QMessageBox::warning(this, "警告", "实体名称不能为空");
+        return;
+      }
+      
+      int templateId = templateComboBox->currentData().toInt();
+      
+      // Create new entity
+      auto entity = m_document->createEntity(name.toStdString());
+      
+      // Set error and info callbacks
+      entity->setErrorCallback([this](const std::string& message) {
+        this->logToConsole("TCC 错误: " + QString::fromStdString(message));
+      });
+      entity->setInfoCallback([this](const std::string& message) {
+        this->logToConsole("INFO: " + QString::fromStdString(message));
+      });
+      
+      if (templateId != -1) {
+        // Use template
+        entity->setTemplateId(templateId);
+        // Set default properties based on template
+        entity->setProperty("size", 1.0f);
+      } else {
+        // Set default script
+        entity->setScriptSource("void generate() {\n  float size = cgeo_get_prop_float(\"size\");\n  if (size <= 0) size = 1.0f;\n  \n  // Create a cube\n  cgeo_add_vertex(-size, -size, -size);\n  cgeo_add_vertex(size, -size, -size);\n  cgeo_add_vertex(size, size, -size);\n  cgeo_add_vertex(-size, size, -size);\n  cgeo_add_vertex(-size, -size, size);\n  cgeo_add_vertex(size, -size, size);\n  cgeo_add_vertex(size, size, size);\n  cgeo_add_vertex(-size, size, size);\n  \n  // Front face\n  cgeo_add_index(0); cgeo_add_index(1); cgeo_add_index(2);\n  cgeo_add_index(0); cgeo_add_index(2); cgeo_add_index(3);\n  \n  // Back face\n  cgeo_add_index(4); cgeo_add_index(6); cgeo_add_index(5);\n  cgeo_add_index(4); cgeo_add_index(7); cgeo_add_index(6);\n  \n  // Left face\n  cgeo_add_index(4); cgeo_add_index(5); cgeo_add_index(1);\n  cgeo_add_index(4); cgeo_add_index(1); cgeo_add_index(0);\n  \n  // Right face\n  cgeo_add_index(3); cgeo_add_index(2); cgeo_add_index(6);\n  cgeo_add_index(3); cgeo_add_index(6); cgeo_add_index(7);\n  \n  // Top face\n  cgeo_add_index(7); cgeo_add_index(6); cgeo_add_index(2);\n  cgeo_add_index(7); cgeo_add_index(2); cgeo_add_index(3);\n  \n  // Bottom face\n  cgeo_add_index(4); cgeo_add_index(0); cgeo_add_index(1);\n  cgeo_add_index(4); cgeo_add_index(1); cgeo_add_index(5);\n}\n");
+        // Set default property
+        entity->setProperty("size", 1.0f);
+      }
+      
+      // Update scene tree
+      updateSceneTree();
+      
+      // Select the new entity
+      QTreeWidgetItem* item = m_sceneTree->topLevelItem(m_sceneTree->topLevelItemCount() - 1);
+      m_sceneTree->setCurrentItem(item);
+      
+      logToConsole("创建新实体: " + name);
+      dialog->accept();
     });
-    entity->setInfoCallback([this](const std::string& message) {
-      this->logToConsole("INFO: " + QString::fromStdString(message));
-    });
     
-    // Set default script
-    entity->setScriptSource("void generate() {\n  float size = cgeo_get_prop_float(\"size\");\n  if (size <= 0) size = 1.0f;\n  \n  // Create a cube\n  cgeo_add_vertex(-size, -size, -size);\n  cgeo_add_vertex(size, -size, -size);\n  cgeo_add_vertex(size, size, -size);\n  cgeo_add_vertex(-size, size, -size);\n  cgeo_add_vertex(-size, -size, size);\n  cgeo_add_vertex(size, -size, size);\n  cgeo_add_vertex(size, size, size);\n  cgeo_add_vertex(-size, size, size);\n  \n  // Front face\n  cgeo_add_index(0); cgeo_add_index(1); cgeo_add_index(2);\n  cgeo_add_index(0); cgeo_add_index(2); cgeo_add_index(3);\n  \n  // Back face\n  cgeo_add_index(4); cgeo_add_index(6); cgeo_add_index(5);\n  cgeo_add_index(4); cgeo_add_index(7); cgeo_add_index(6);\n  \n  // Left face\n  cgeo_add_index(4); cgeo_add_index(5); cgeo_add_index(1);\n  cgeo_add_index(4); cgeo_add_index(1); cgeo_add_index(0);\n  \n  // Right face\n  cgeo_add_index(3); cgeo_add_index(2); cgeo_add_index(6);\n  cgeo_add_index(3); cgeo_add_index(6); cgeo_add_index(7);\n  \n  // Top face\n  cgeo_add_index(7); cgeo_add_index(6); cgeo_add_index(2);\n  cgeo_add_index(7); cgeo_add_index(2); cgeo_add_index(3);\n  \n  // Bottom face\n  cgeo_add_index(4); cgeo_add_index(0); cgeo_add_index(1);\n  cgeo_add_index(4); cgeo_add_index(1); cgeo_add_index(5);\n}\n");
+    connect(cancelButton, &QPushButton::clicked, dialog, &QDialog::reject);
     
-    // Set default property
-    entity->setProperty("size", 1.0f);
-    
-    // Update scene tree
-    updateSceneTree();
-    
-    // Select the new entity
-    QTreeWidgetItem* item = m_sceneTree->topLevelItem(m_sceneTree->topLevelItemCount() - 1);
-    m_sceneTree->setCurrentItem(item);
-    
-    logToConsole("创建新实体: " + QString::fromStdString(entity->name()));
+    dialog->exec();
   }
 }
 
@@ -520,10 +606,55 @@ void PMainWindow::updatePropertyEditor() {
   // Clear existing rows
   m_propertyEditor->setRowCount(0);
   
+  // Add template property group
+  int row = m_propertyEditor->rowCount();
+  m_propertyEditor->insertRow(row);
+  QTableWidgetItem* templateGroupHeaderItem = new QTableWidgetItem("[模板]");
+  templateGroupHeaderItem->setFlags(templateGroupHeaderItem->flags() & ~Qt::ItemIsEditable);
+  templateGroupHeaderItem->setBackground(QColor(240, 240, 240));
+  m_propertyEditor->setItem(row, 0, templateGroupHeaderItem);
+  m_propertyEditor->setSpan(row, 0, 1, 2);
+  
+  // Add template selection combo box
+  row = m_propertyEditor->rowCount();
+  m_propertyEditor->insertRow(row);
+  QTableWidgetItem* templateLabelItem = new QTableWidgetItem("模板");
+  templateLabelItem->setFlags(templateLabelItem->flags() & ~Qt::ItemIsEditable);
+  m_propertyEditor->setItem(row, 0, templateLabelItem);
+  
+  QComboBox* templateComboBox = new QComboBox();
+  templateComboBox->addItem("无", -1);
+  
+  // Add all available templates
+  for (const auto& [id, templatePtr] : m_document->templates()) {
+    templateComboBox->addItem(QString::fromStdString(templatePtr->name()), id);
+  }
+  
+  // Set current template
+  int currentTemplateId = entity->templateId();
+  templateComboBox->setCurrentIndex(templateComboBox->findData(currentTemplateId));
+  
+  // Connect template selection changed signal
+  connect(templateComboBox, QOverload<int>::of(&QComboBox::currentIndexChanged), this, [this, entity](int index) {
+    QComboBox* senderComboBox = qobject_cast<QComboBox*>(sender());
+    if (senderComboBox) {
+      int templateId = senderComboBox->currentData().toInt();
+      entity->setTemplateId(templateId);
+      entity->rebuild();
+      m_glViewport->update();
+      logToConsole("更新实体模板: " + QString::fromStdString(entity->name()));
+      logToConsole("重建实体几何: " + QString::fromStdString(entity->name()));
+      // Update script editor to reflect template usage
+      updateScriptEditor();
+    }
+  });
+  
+  m_propertyEditor->setCellWidget(row, 1, templateComboBox);
+  
   // Add properties to table
   for (const auto& [groupName, group] : entity->propertyGroups()) {
     // Add group header
-    int row = m_propertyEditor->rowCount();
+    row = m_propertyEditor->rowCount();
     m_propertyEditor->insertRow(row);
     QTableWidgetItem* groupHeaderItem = new QTableWidgetItem("[" + QString::fromStdString(groupName) + "]");
     groupHeaderItem->setFlags(groupHeaderItem->flags() & ~Qt::ItemIsEditable);
@@ -540,31 +671,165 @@ void PMainWindow::updatePropertyEditor() {
       keyItem->setFlags(keyItem->flags() & ~Qt::ItemIsEditable);
       m_propertyEditor->setItem(row, 0, keyItem);
       
-      QString valueStr;
-      std::visit([&valueStr](auto&& arg) {
-        using T = std::decay_t<decltype(arg)>;
-        if constexpr (std::is_same_v<T, float>) {
-          valueStr = QString::number(arg);
-        } else if constexpr (std::is_same_v<T, int>) {
-          valueStr = QString::number(arg);
-        } else if constexpr (std::is_same_v<T, bool>) {
-          valueStr = arg ? "true" : "false";
-        } else if constexpr (std::is_same_v<T, std::string>) {
-          valueStr = QString::fromStdString(arg);
-        } else if constexpr (std::is_same_v<T, std::vector<float>>) {
-          valueStr = "[";
-          for (size_t i = 0; i < arg.size(); ++i) {
-            valueStr += QString::number(arg[i]);
-            if (i < arg.size() - 1) {
-              valueStr += ", ";
-            }
-          }
-          valueStr += "]";
-        }
-      }, value);
+      // Get property metadata
+      const PPropertyMeta* meta = group.getPropertyMeta(key);
       
-      QTableWidgetItem* valueItem = new QTableWidgetItem(valueStr);
-      m_propertyEditor->setItem(row, 1, valueItem);
+      // Check if it's a boolean property
+      if (std::holds_alternative<bool>(value)) {
+        bool boolValue = std::get<bool>(value);
+        QCheckBox* checkBox = new QCheckBox();
+        checkBox->setChecked(boolValue);
+        checkBox->setProperty("propertyName", QString::fromStdString(key));
+        checkBox->setProperty("groupName", QString::fromStdString(groupName));
+        connect(checkBox, &QCheckBox::stateChanged, this, [this, entity](int state) {
+          QCheckBox* senderCheckBox = qobject_cast<QCheckBox*>(sender());
+          if (senderCheckBox) {
+            QString propertyName = senderCheckBox->property("propertyName").toString();
+            QString groupName = senderCheckBox->property("groupName").toString();
+            bool value = (state == Qt::Checked);
+            entity->setProperty(groupName.toStdString(), propertyName.toStdString(), PPropertyValue(value));
+            entity->rebuild();
+            m_glViewport->update();
+            logToConsole("更新实体属性: " + QString::fromStdString(entity->name()));
+            logToConsole("重建实体几何: " + QString::fromStdString(entity->name()));
+          }
+        });
+        m_propertyEditor->setCellWidget(row, 1, checkBox);
+      }
+      // Check if it's an enum property
+      else if (meta && meta->isEnum()) {
+        int intValue = 0;
+        if (std::holds_alternative<int>(value)) {
+          intValue = std::get<int>(value);
+        }
+        QComboBox* comboBox = new QComboBox();
+        for (const auto& [enumValue, enumName] : meta->enumValues()) {
+          comboBox->addItem(QString::fromStdString(enumName), enumValue);
+        }
+        comboBox->setCurrentIndex(comboBox->findData(intValue));
+        comboBox->setProperty("propertyName", QString::fromStdString(key));
+        comboBox->setProperty("groupName", QString::fromStdString(groupName));
+        connect(comboBox, QOverload<int>::of(&QComboBox::currentIndexChanged), this, [this, entity](int index) {
+          QComboBox* senderComboBox = qobject_cast<QComboBox*>(sender());
+          if (senderComboBox) {
+            QString propertyName = senderComboBox->property("propertyName").toString();
+            QString groupName = senderComboBox->property("groupName").toString();
+            int value = senderComboBox->currentData().toInt();
+            entity->setProperty(groupName.toStdString(), propertyName.toStdString(), PPropertyValue(value));
+            entity->rebuild();
+            m_glViewport->update();
+            logToConsole("更新实体属性: " + QString::fromStdString(entity->name()));
+            logToConsole("重建实体几何: " + QString::fromStdString(entity->name()));
+          }
+        });
+        m_propertyEditor->setCellWidget(row, 1, comboBox);
+      }
+      // Check if it's a float property with range
+      else if (meta && meta->hasRange() && std::holds_alternative<float>(value)) {
+        float floatValue = std::get<float>(value);
+        QSlider* slider = new QSlider(Qt::Horizontal);
+        slider->setMinimum(0);
+        slider->setMaximum(100);
+        slider->setValue(static_cast<int>((floatValue - meta->minValue()) / (meta->maxValue() - meta->minValue()) * 100));
+        
+        QDoubleSpinBox* spinBox = new QDoubleSpinBox();
+        spinBox->setMinimum(meta->minValue());
+        spinBox->setMaximum(meta->maxValue());
+        spinBox->setValue(floatValue);
+        spinBox->setDecimals(2);
+        
+        QHBoxLayout* layout = new QHBoxLayout();
+        layout->addWidget(slider);
+        layout->addWidget(spinBox);
+        layout->setContentsMargins(0, 0, 0, 0);
+        
+        QWidget* widget = new QWidget();
+        widget->setLayout(layout);
+        
+        widget->setProperty("propertyName", QString::fromStdString(key));
+        widget->setProperty("groupName", QString::fromStdString(groupName));
+        
+        connect(slider, &QSlider::valueChanged, this, [this, entity, meta](int value) {
+          QSlider* senderSlider = qobject_cast<QSlider*>(sender());
+          if (senderSlider) {
+            QWidget* parentWidget = senderSlider->parentWidget();
+            QString propertyName = parentWidget->property("propertyName").toString();
+            QString groupName = parentWidget->property("groupName").toString();
+            float floatValue = meta->minValue() + (meta->maxValue() - meta->minValue()) * value / 100.0f;
+            entity->setProperty(groupName.toStdString(), propertyName.toStdString(), PPropertyValue(floatValue));
+            
+            // Update spin box
+            QDoubleSpinBox* spinBox = parentWidget->findChild<QDoubleSpinBox*>();
+            if (spinBox) {
+              spinBox->blockSignals(true);
+              spinBox->setValue(floatValue);
+              spinBox->blockSignals(false);
+            }
+            
+            entity->rebuild();
+            m_glViewport->update();
+            logToConsole("更新实体属性: " + QString::fromStdString(entity->name()));
+            logToConsole("重建实体几何: " + QString::fromStdString(entity->name()));
+          }
+        });
+        
+        connect(spinBox, QOverload<double>::of(&QDoubleSpinBox::valueChanged), this, [this, entity, meta](double value) {
+          QDoubleSpinBox* senderSpinBox = qobject_cast<QDoubleSpinBox*>(sender());
+          if (senderSpinBox) {
+            QWidget* parentWidget = senderSpinBox->parentWidget();
+            QString propertyName = parentWidget->property("propertyName").toString();
+            QString groupName = parentWidget->property("groupName").toString();
+            float floatValue = static_cast<float>(value);
+            entity->setProperty(groupName.toStdString(), propertyName.toStdString(), PPropertyValue(floatValue));
+            
+            // Update slider
+            QSlider* slider = parentWidget->findChild<QSlider*>();
+            if (slider) {
+              slider->blockSignals(true);
+              slider->setValue(static_cast<int>((floatValue - meta->minValue()) / (meta->maxValue() - meta->minValue()) * 100));
+              slider->blockSignals(false);
+            }
+            
+            entity->rebuild();
+            m_glViewport->update();
+            logToConsole("更新实体属性: " + QString::fromStdString(entity->name()));
+            logToConsole("重建实体几何: " + QString::fromStdString(entity->name()));
+          }
+        });
+        
+        m_propertyEditor->setCellWidget(row, 1, widget);
+      }
+      // Default case: use text editor
+      else {
+        QString valueStr;
+        std::visit([&valueStr](auto&& arg) {
+          using T = std::decay_t<decltype(arg)>;
+          if constexpr (std::is_same_v<T, float>) {
+            valueStr = QString::number(arg);
+          } else if constexpr (std::is_same_v<T, int>) {
+            valueStr = QString::number(arg);
+          } else if constexpr (std::is_same_v<T, bool>) {
+            valueStr = arg ? "true" : "false";
+          } else if constexpr (std::is_same_v<T, std::string>) {
+            valueStr = QString::fromStdString(arg);
+          } else if constexpr (std::is_same_v<T, std::vector<float>>) {
+            valueStr = "[";
+            for (size_t i = 0; i < arg.size(); ++i) {
+              valueStr += QString::number(arg[i]);
+              if (i < arg.size() - 1) {
+                valueStr += ", ";
+              }
+            }
+            valueStr += "]";
+          }
+        }, value);
+        
+        QTableWidgetItem* valueItem = new QTableWidgetItem(valueStr);
+        if (meta && meta->readOnly()) {
+          valueItem->setFlags(valueItem->flags() & ~Qt::ItemIsEditable);
+        }
+        m_propertyEditor->setItem(row, 1, valueItem);
+      }
     }
   }
   
@@ -573,7 +838,7 @@ void PMainWindow::updatePropertyEditor() {
   
   // Set minimum column widths
   m_propertyEditor->setColumnWidth(0, 150); // 加宽“属性”列
-  m_propertyEditor->setColumnWidth(1, 150); // 加宽“值”列
+  m_propertyEditor->setColumnWidth(1, 250); // 加宽“值”列，以容纳滑块等控件
 }
 
 void PMainWindow::updateScriptEditor() {
@@ -590,6 +855,22 @@ void PMainWindow::updateScriptEditor() {
     return;
   }
   
+  // Check if entity is using a template
+  int templateId = entity->templateId();
+  if (templateId != -1) {
+    auto templatePtr = m_document->getTemplate(templateId);
+    if (templatePtr) {
+      // Show template information
+      m_scriptEditor->setEnabled(true);
+      m_scriptEditor->setReadOnly(true);
+      m_scriptEditor->setPlainText("// 使用模板: " + QString::fromStdString(templatePtr->name()) + "\n" +
+                               "// 模板ID: " + QString::number(templateId) + "\n\n" +
+                               QString::fromStdString(templatePtr->script()));
+      return;
+    }
+  }
+  
+  // If not using template, show custom script
   m_scriptEditor->setEnabled(true);
   m_scriptEditor->setReadOnly(false);
   m_scriptEditor->setPlainText(entity->scriptSource().c_str());
@@ -633,6 +914,14 @@ void PMainWindow::setupMenuBar() {
   // Create menu bar
   QMenuBar* menuBar = new QMenuBar(this);
   setMenuBar(menuBar);
+  
+  // Create file menu
+  QMenu* fileMenu = menuBar->addMenu("文件");
+  
+  // Create export STL action
+  QAction* exportSTLAction = new QAction("导出STL", this);
+  connect(exportSTLAction, &QAction::triggered, this, &PMainWindow::onExportSTL);
+  fileMenu->addAction(exportSTLAction);
   
   // Create help menu
   QMenu* helpMenu = menuBar->addMenu("帮助");
@@ -718,4 +1007,197 @@ void PMainWindow::onAbout() {
 void PMainWindow::onRunScript() {
   onRebuildGeometry();
   logToConsole("运行脚本");
+}
+
+void PMainWindow::onExportSTL() {
+  if (m_selectedEntityId == -1) {
+    QMessageBox::information(this, "信息", "未选择实体");
+    return;
+  }
+  
+  auto entity = m_document->getEntity(m_selectedEntityId);
+  if (!entity) {
+    QMessageBox::information(this, "信息", "未找到实体");
+    return;
+  }
+  
+  // Open file dialog to select save location
+  QString fileName = QFileDialog::getSaveFileName(
+    this, 
+    "导出STL文件", 
+    QCoreApplication::applicationDirPath() + "/" + QString::fromStdString(entity->name()) + ".stl", 
+    "STL Files (*.stl);;All Files (*)"
+  );
+  
+  if (!fileName.isEmpty()) {
+    try {
+      entity->exportSTL(fileName.toStdString());
+      logToConsole("导出STL文件成功: " + fileName);
+      QMessageBox::information(this, "成功", "STL文件导出成功！");
+    } catch (const std::exception& e) {
+      logToConsole("导出STL文件错误: " + QString::fromStdString(e.what()));
+      QMessageBox::critical(this, "错误", "导出STL文件失败: " + QString::fromStdString(e.what()));
+    } catch (...) {
+      logToConsole("导出STL文件未知错误");
+      QMessageBox::critical(this, "错误", "导出STL文件时发生未知错误");
+    }
+  }
+}
+
+void PMainWindow::updateTemplateList() {
+  if (!m_templateList) return;
+  
+  m_templateList->clear();
+  
+  for (const auto& [id, templatePtr] : m_document->templates()) {
+    QListWidgetItem* item = new QListWidgetItem(QString::fromStdString(templatePtr->name()) + " (ID: " + QString::number(id) + ")");
+    item->setData(Qt::UserRole, id);
+    m_templateList->addItem(item);
+  }
+}
+
+void PMainWindow::onNewTemplate() {
+  // Create a simple template dialog
+  QDialog* dialog = new QDialog(this);
+  dialog->setWindowTitle("新建模板");
+  dialog->setFixedSize(400, 300);
+  
+  QVBoxLayout* layout = new QVBoxLayout(dialog);
+  
+  QLabel* nameLabel = new QLabel("模板名称:");
+  QLineEdit* nameEdit = new QLineEdit();
+  nameEdit->setText("新模板");
+  
+  QLabel* scriptLabel = new QLabel("模板脚本:");
+  QTextEdit* scriptEdit = new QTextEdit();
+  scriptEdit->setPlainText("void generate() {\n  float size = cgeo_get_prop_float(\"size\");\n  if (size <= 0) size = 1.0f;\n  \n  // 创建一个立方体\n  cgeo_add_vertex(-size, -size, -size);\n  cgeo_add_vertex(size, -size, -size);\n  cgeo_add_vertex(size, size, -size);\n  cgeo_add_vertex(-size, size, -size);\n  cgeo_add_vertex(-size, -size, size);\n  cgeo_add_vertex(size, -size, size);\n  cgeo_add_vertex(size, size, size);\n  cgeo_add_vertex(-size, size, size);\n  \n  // 前 face\n  cgeo_add_index(0); cgeo_add_index(1); cgeo_add_index(2);\n  cgeo_add_index(0); cgeo_add_index(2); cgeo_add_index(3);\n  \n  // 后 face\n  cgeo_add_index(4); cgeo_add_index(6); cgeo_add_index(5);\n  cgeo_add_index(4); cgeo_add_index(7); cgeo_add_index(6);\n  \n  // 左 face\n  cgeo_add_index(4); cgeo_add_index(5); cgeo_add_index(1);\n  cgeo_add_index(4); cgeo_add_index(1); cgeo_add_index(0);\n  \n  // 右 face\n  cgeo_add_index(3); cgeo_add_index(2); cgeo_add_index(6);\n  cgeo_add_index(3); cgeo_add_index(6); cgeo_add_index(7);\n  \n  // 顶 face\n  cgeo_add_index(7); cgeo_add_index(6); cgeo_add_index(2);\n  cgeo_add_index(7); cgeo_add_index(2); cgeo_add_index(3);\n  \n  // 底 face\n  cgeo_add_index(4); cgeo_add_index(0); cgeo_add_index(1);\n  cgeo_add_index(4); cgeo_add_index(1); cgeo_add_index(5);\n}\n");
+  
+  QHBoxLayout* buttonLayout = new QHBoxLayout();
+  QPushButton* okButton = new QPushButton("确定");
+  QPushButton* cancelButton = new QPushButton("取消");
+  buttonLayout->addWidget(okButton);
+  buttonLayout->addWidget(cancelButton);
+  
+  layout->addWidget(nameLabel);
+  layout->addWidget(nameEdit);
+  layout->addWidget(scriptLabel);
+  layout->addWidget(scriptEdit);
+  layout->addLayout(buttonLayout);
+  
+  connect(okButton, &QPushButton::clicked, [this, dialog, nameEdit, scriptEdit]() {
+    QString name = nameEdit->text();
+    if (name.isEmpty()) {
+      QMessageBox::warning(this, "警告", "模板名称不能为空");
+      return;
+    }
+    
+    QString script = scriptEdit->toPlainText();
+    if (script.isEmpty()) {
+      QMessageBox::warning(this, "警告", "模板脚本不能为空");
+      return;
+    }
+    
+    m_document->createTemplate(name.toStdString(), script.toStdString());
+    updateTemplateList();
+    logToConsole("创建新模板: " + name);
+    dialog->accept();
+  });
+  
+  connect(cancelButton, &QPushButton::clicked, dialog, &QDialog::reject);
+  
+  dialog->exec();
+}
+
+void PMainWindow::onEditTemplate() {
+  if (!m_templateList || m_templateList->currentItem() == nullptr) {
+    QMessageBox::information(this, "信息", "请选择一个模板进行编辑");
+    return;
+  }
+  
+  QListWidgetItem* item = m_templateList->currentItem();
+  int templateId = item->data(Qt::UserRole).toInt();
+  auto templatePtr = m_document->getTemplate(templateId);
+  
+  if (!templatePtr) {
+    QMessageBox::information(this, "信息", "未找到选中的模板");
+    return;
+  }
+  
+  // Create edit template dialog
+  QDialog* dialog = new QDialog(this);
+  dialog->setWindowTitle("编辑模板");
+  dialog->setFixedSize(400, 300);
+  
+  QVBoxLayout* layout = new QVBoxLayout(dialog);
+  
+  QLabel* nameLabel = new QLabel("模板名称:");
+  QLineEdit* nameEdit = new QLineEdit();
+  nameEdit->setText(QString::fromStdString(templatePtr->name()));
+  
+  QLabel* scriptLabel = new QLabel("模板脚本:");
+  QTextEdit* scriptEdit = new QTextEdit();
+  scriptEdit->setPlainText(QString::fromStdString(templatePtr->script()));
+  
+  QHBoxLayout* buttonLayout = new QHBoxLayout();
+  QPushButton* okButton = new QPushButton("确定");
+  QPushButton* cancelButton = new QPushButton("取消");
+  buttonLayout->addWidget(okButton);
+  buttonLayout->addWidget(cancelButton);
+  
+  layout->addWidget(nameLabel);
+  layout->addWidget(nameEdit);
+  layout->addWidget(scriptLabel);
+  layout->addWidget(scriptEdit);
+  layout->addLayout(buttonLayout);
+  
+  connect(okButton, &QPushButton::clicked, [this, dialog, nameEdit, scriptEdit, templateId]() {
+    QString name = nameEdit->text();
+    if (name.isEmpty()) {
+      QMessageBox::warning(this, "警告", "模板名称不能为空");
+      return;
+    }
+    
+    QString script = scriptEdit->toPlainText();
+    if (script.isEmpty()) {
+      QMessageBox::warning(this, "警告", "模板脚本不能为空");
+      return;
+    }
+    
+    // Update existing template
+    m_document->updateTemplate(templateId, name.toStdString(), script.toStdString());
+    
+    updateTemplateList();
+    logToConsole("更新模板: " + name);
+    dialog->accept();
+  });
+  
+  connect(cancelButton, &QPushButton::clicked, dialog, &QDialog::reject);
+  
+  dialog->exec();
+}
+
+void PMainWindow::onDeleteTemplate() {
+  if (!m_templateList || m_templateList->currentItem() == nullptr) {
+    QMessageBox::information(this, "信息", "请选择一个模板进行删除");
+    return;
+  }
+  
+  QListWidgetItem* item = m_templateList->currentItem();
+  int templateId = item->data(Qt::UserRole).toInt();
+  auto templatePtr = m_document->getTemplate(templateId);
+  
+  if (!templatePtr) {
+    QMessageBox::information(this, "信息", "未找到选中的模板");
+    return;
+  }
+  
+  QMessageBox::StandardButton reply = QMessageBox::question(this, "确认删除", 
+    "确定要删除模板 '" + QString::fromStdString(templatePtr->name()) + "' 吗？",
+    QMessageBox::Yes | QMessageBox::No);
+  
+  if (reply == QMessageBox::Yes) {
+    m_document->removeTemplate(templateId);
+    updateTemplateList();
+    logToConsole("删除模板: " + QString::fromStdString(templatePtr->name()));
+  }
 }

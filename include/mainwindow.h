@@ -14,6 +14,10 @@
 #include <QTabWidget>
 #include <QDateTime>
 #include <QSplitter>
+#include <QSlider>
+#include <QDoubleSpinBox>
+#include <QListWidget>
+#include <QLineEdit>
 #include "geometry.h"
 #include "glviewport.h"
 
@@ -29,6 +33,7 @@ private:
   PGLViewport* m_glViewport;
   QTableWidget* m_propertyEditor;
   QLabel* m_propertyLabel;
+  QListWidget* m_templateList;
   
   // Current selected entity
   int m_selectedEntityId;
@@ -47,6 +52,10 @@ private slots:
   void onLoadScript();
   void onSaveScript();
   void onRunScript();
+  void onExportSTL();
+  void onNewTemplate();
+  void onEditTemplate();
+  void onDeleteTemplate();
   
 private:
   void setupUI();
@@ -54,6 +63,7 @@ private:
   void updateSceneTree();
   void updatePropertyEditor();
   void updateScriptEditor();
+  void updateTemplateList();
   void logToConsole(const QString& message);
   void onAbout();
 };
